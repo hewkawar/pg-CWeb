@@ -227,7 +227,7 @@ async function getM2BotVoiceChannel(DB, ChannelID) {
                     reject(err);
                 } else {
                     if (results.length === 0) {
-                        resolve(null);
+                        resolve([]);
                     } else {
                         resolve(results);
                     }
