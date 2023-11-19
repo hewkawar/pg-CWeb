@@ -378,17 +378,17 @@ const PORT = 3000;
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 
-    // axios.post(debug_webhook_url, {
-    //     embeds: [
-    //         {
-    //             title: 'HewkawAr API is Up',
-    //             description: `Target : **[api.hewkawar.xyz](https://api.hewkawar.xyz)**\nHewkawAr Database : ${hewkawar_db_c}\nHStudio Database : ${hstudio_db_c}\nHewkawAr Database : ${m2bot_db_c}`,
-    //             color: discord.Colors.Green,
-    //             timestamp: new Date().toISOString(),
-    //             thumbnail: { url: 'https://www.hewkawar.xyz/assets/uploads/up-arrow.png' },
-    //         },
-    //     ],
-    //     avatar_url: "https://www.hewkawar.xyz/assets/favicon.png",
-    //     username: "StatusTools"
-    // });
+    axios.post(webhook_url, {
+        embeds: [
+            {
+                title: 'HewkawAr API is Up',
+                description: `Target : **[api.hewkawar.xyz](https://api.hewkawar.xyz)**\nHewkawAr Database : ${hewkawar_db_c}\nHStudio Database : ${hstudio_db_c}\nHewkawAr Database : ${m2bot_db_c}`,
+                color: discord.Colors.Green,
+                timestamp: new Date().toISOString(),
+                thumbnail: { url: 'https://www.hewkawar.xyz/assets/uploads/up-arrow.png' },
+            },
+        ],
+        avatar_url: "https://www.hewkawar.xyz/assets/favicon.png",
+        username: "StatusTools"
+    });
 });
