@@ -308,11 +308,31 @@ app.get('/app/hstuido/config', async (req, res) => {
 // });
 
 app.get('/app/m2bot/voicechat', async (req, res) => {
-    const VoiceChat = await utilts.getM2BotVoiceChannel(m2bot_db);
+    const VoiceChats = await utilts.getM2BotVoiceChannel(m2bot_db);
 
-    const ServerList = VoiceChat;
+    const VoiceChannelList = []
 
-    return res.status(200).json(ServerList);
+    VoiceChats.forEach(VoiceChat => {
+        const VoiceChannel = {
+            ID: VoiceChat.id,
+            Channel: {
+                ID: VoiceChat.channel_id,
+                Type: VoiceChat.channel_type,
+                Name: VoiceChat.channel_name,
+            },
+            Member: {
+                ID: VoiceChat.member_id,
+                Name: VoiceChat.member_name,
+            },
+            TimeStamp: VoiceChat.timestemp,
+        }
+
+        VoiceChannelList.push(VoiceChannel);
+    });
+
+    // const ServerList = VoiceChat;
+
+    return res.status(200).json(VoiceChannelList);
 });
 
 app.post('/app/m2bot/voicechat', async (req, res) => {
@@ -351,7 +371,7 @@ app.post('/app/m2bot/voicechat', async (req, res) => {
     }
 });
 
-app.post('/app/m2bot/voicechat/delete', async (req, res) => {
+app.delete('/app/m2bot/voicechat', async (req, res) => {
     const { ChannelID } = req.body;
 
     if (!ChannelID) {
@@ -361,7 +381,7 @@ app.post('/app/m2bot/voicechat/delete', async (req, res) => {
     const getInfo = await utilts.getM2BotVoiceChannel(m2bot_db, ChannelID);
     const deleteStauts = await utilts.deleteM2BotVoiceChannel(m2bot_db, ChannelID);
 
-    if (deleteStauts) {
+    if (getInfo && deleteStauts) {
         const Response = {
             status: 1,
             message: "Delete to database Success",
@@ -370,7 +390,7 @@ app.post('/app/m2bot/voicechat/delete', async (req, res) => {
 
         return res.status(201).json(Response);
     } else {
-        return res.status(500).json({ status: 7, message: "Can't Delete to database"})
+        return res.status(500).json({ status: 7, message: "Can't Delete data in database"})
     }
 });
 
