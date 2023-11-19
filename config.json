@@ -1,0 +1,10 @@
+{
+    "db_host": "192.168.0.245",
+    "db_username": "root",
+    "db_password": "hewkawdb",
+    "db_port": 32768,
+
+    "linenotify_token": "NWHBlAE0Kj7MZCJuG2pEbvLtr7swJD31woim1vbi2bU",
+    "webhook_url": "https://discord.com/api/webhooks/1156431192036487208/93uFCnYFjFt4TA05vOHman1bn6pyrsR4Q637Q5aMeXYX5Z7I9-FHQdNsYECs-WOQZZ34",
+    "debug_webhook_url": "https://discord.com/api/webhooks/1056173199315963964/AoIJQ5_GL4KdmUnq4-q3ppdO05x-RKO229qS4Ci_eR-AUGn8Qo8N9oQtrovwXUj9wwYe"
+}
