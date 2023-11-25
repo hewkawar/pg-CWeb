@@ -5,6 +5,7 @@ const axios = require('axios');
 const discord = require('discord.js');
 const os = require('os');
 const utilts = require('./utils');
+const path = require('path');
 
 const { db_host, db_port, db_username, db_password, webhook_url, debug_webhook_url } = require('./config.json');
 
@@ -37,9 +38,18 @@ const m2bot_db = mysql.createConnection({
     database: 'm2bot_db',
 });
 
+const hewkawbank_db = mysql.createConnection({
+    host: db_host,
+    user: db_username,
+    password: db_password,
+    port: db_port,
+    database: 'hewkawbank_db',
+});
+
 let hewkawar_db_c = false;
 let hstudio_db_c = false;
 let m2bot_db_c = false;
+let hewkawbank_db_c = false
 
 hewkawar_db.connect((err) => {
     if (err) {
@@ -66,6 +76,19 @@ m2bot_db.connect((err) => {
         console.log('Connected to M2Bot MySQL database');
         m2bot_db_c = true;
     }
+});
+
+hewkawbank_db.connect((err) => {
+    if (err) {
+        console.error('Error connecting to MySQL:', err);
+    } else {
+        console.log('Connected to HewkawBank MySQL database');
+        hewkawbank_db_c = true;
+    }
+});
+
+app.get('/robots.txt', (req, res) => {
+    res.sendFile(path.resolve(__dirname, 'robots.txt'));
 });
 
 app.get('/profile', async (req, res) => {
@@ -244,7 +267,7 @@ app.post('/app/hstuido/config', async (req, res) => {
         let configdata = await utilts.getHstudioConfig(hstudio_db, postData.id);
 
         if (!configdata) {
-            await newHstudioConfig(postData.id);
+            await utilts.newHstudioConfig(hstudio_db, postData.id);
             configdata = await utilts.getHstudioConfig(hstudio_db, postData.id);
         }
 
@@ -330,8 +353,6 @@ app.get('/app/m2bot/voicechat', async (req, res) => {
         VoiceChannelList.push(VoiceChannel);
     });
 
-    // const ServerList = VoiceChat;
-
     return res.status(200).json(VoiceChannelList);
 });
 
@@ -339,15 +360,15 @@ app.post('/app/m2bot/voicechat', async (req, res) => {
     const { ChannelID, ChannelType, ChannelName, MemberID, MemberUsername } = req.body;
 
     if (!ChannelID) {
-        return res.status(400).json({ status: 2, message: "Unavailable ChannelID"});
+        return res.status(400).json({ status: 2, message: "Undefined ChannelID" });
     } else if (!ChannelType) {
-        return res.status(400).json({ status: 3, message: "Unavailable ChannelType"});
+        return res.status(400).json({ status: 3, message: "Undefined ChannelType" });
     } else if (!ChannelName) {
-        return res.status(400).json({ status: 4, message: "Unavailable ChannelName"});
+        return res.status(400).json({ status: 4, message: "Undefined ChannelName" });
     } else if (!MemberID) {
-        return res.status(400).json({ status: 5, message: "Unavailable MemberID"});
+        return res.status(400).json({ status: 5, message: "Undefined MemberID" });
     } else if (!MemberUsername) {
-        return res.status(400).json({ status: 6, message: "Unavailable MemberUsername"});
+        return res.status(400).json({ status: 6, message: "Undefined MemberUsername" });
     }
 
     const InsertStauts = await utilts.newM2BotVoiceChannel(m2bot_db, ChannelID, ChannelType, ChannelName, MemberID, MemberUsername);
@@ -364,10 +385,10 @@ app.post('/app/m2bot/voicechat', async (req, res) => {
                 MemberUsername: MemberUsername,
             }
         };
-    
+
         return res.status(201).json(Response);
     } else {
-        return res.status(500).json({ status: 7, message: "Can't Insert to database"})
+        return res.status(500).json({ status: 7, message: "Can't Insert to database" })
     }
 });
 
@@ -375,7 +396,7 @@ app.delete('/app/m2bot/voicechat', async (req, res) => {
     const { ChannelID } = req.body;
 
     if (!ChannelID) {
-        return res.status(400).json({ status: 2, message: "Unavailable ChannelID"});
+        return res.status(400).json({ status: 2, message: "Unavailable ChannelID" });
     }
 
     const getInfo = await utilts.getM2BotVoiceChannel(m2bot_db, ChannelID);
@@ -390,7 +411,434 @@ app.delete('/app/m2bot/voicechat', async (req, res) => {
 
         return res.status(201).json(Response);
     } else {
-        return res.status(500).json({ status: 7, message: "Can't Delete data in database"})
+        return res.status(500).json({ status: 7, message: "Can't Delete data in database" })
+    }
+});
+
+app.get('/app/bank/session', async (req, res) => {
+    const { session_id } = req.query;
+
+    if (!session_id) {
+        return res.status(400).json({ status: 1, message: "Undefined session_id" });
+    }
+
+    const SessionData = await utilts.getBankSession(hewkawbank_db, session_id);
+
+    if (!SessionData) {
+        return res.status(400).json({ status: 6, message: 'Undefined Session' });
+    }
+
+    const currentTimestamp = Date.now();
+    const sessionExpireTimestamp = new Date(SessionData[0].expire).getTime();
+
+    if (currentTimestamp > sessionExpireTimestamp) {
+        return res.status(401).json({ status: 7, message: 'Session Expired' });
+    }
+
+
+    const response = {
+        session_id: SessionData[0].session_id,
+        username: SessionData[0].username,
+        displayname: SessionData[0].displayname,
+        profileurl: SessionData[0].profileurl,
+        expire: SessionData[0].expire,
+    }
+
+    return res.status(200).json(response);
+})
+
+app.post('/app/bank/session', async (req, res) => {
+    const { username, displayname, profileurl, expire } = req.body;
+
+    const session_id = utilts.generateRandomString(50);
+
+    if (!username) {
+        return res.status(400).json({ status: 1, message: "Undefined username" });
+    } else if (!displayname) {
+        return res.status(400).json({ status: 2, message: "Undefined displayname" });
+    } else if (!profileurl) {
+        return res.status(400).json({ status: 3, message: "Undefined profileurl" });
+    } else if (!expire) {
+        return res.status(400).json({ status: 4, message: "Undefined expire" });
+    }
+
+    const insert = utilts.newBankSession(hewkawbank_db, session_id, username, displayname, profileurl, expire)
+
+    if (insert) {
+        const Response = {
+            status: 0,
+            message: "Create Session Success",
+            detail: {
+                session_id: session_id,
+                username: username,
+                displayname: displayname,
+                profileurl: profileurl,
+                expire: expire,
+            }
+        };
+
+        return res.status(201).json(Response);
+    } else {
+        return res.status(500).json({ status: 5, message: "Can't Insert to database" })
+    }
+})
+
+app.delete('/app/bank/session', async (req, res) => {
+    const { session_id } = req.body;
+
+    if (!session_id) {
+        return res.status(400).json({ status: 2, message: "Undefined session_id" });
+    }
+
+    const getInfo = await utilts.getBankSession(hewkawbank_db, session_id);
+    const deleteStauts = await utilts.clearBankSession(hewkawbank_db, session_id);
+
+    if (getInfo && deleteStauts) {
+        const Response = {
+            status: 0,
+            message: "Clear Session success",
+            detail: getInfo,
+        };
+
+        return res.status(200).json(Response);
+    } else {
+        return res.status(500).json({ status: 6, message: "Can't Delete data in database" })
+    }
+})
+
+app.get('/app/bank/balance', async (req, res) => {
+    const { session_id } = req.query;
+
+    if (!session_id) {
+        return res.status(400).json({ status: 1, message: "Undefined session_id" });
+    }
+
+    const SessionData = await utilts.getBankSession(hewkawbank_db, session_id);
+
+    if (!SessionData) {
+        return res.status(400).json({ status: 6, message: 'Undefined Session' });
+    }
+
+    const currentTimestamp = Date.now();
+    const sessionExpireTimestamp = new Date(SessionData[0].expire).getTime();
+
+    if (currentTimestamp > sessionExpireTimestamp) {
+        return res.status(401).json({ status: 7, message: 'Session Expired' });
+    }
+
+    try {
+        let accountdata = await utilts.getBankAccount(hewkawbank_db, SessionData[0].username);
+
+        if (!accountdata) {
+            await utilts.newBankAccount(hewkawbank_db, SessionData[0].username);
+            accountdata = await utilts.getBankAccount(hewkawbank_db, SessionData[0].username);
+        }
+
+        var currentDate = new Date();
+        var currentYear = currentDate.getFullYear();
+        var currentMonth = currentDate.getMonth() + 1;
+
+        const dw = await utilts.getBankTransition(hewkawbank_db, SessionData[0].username, currentMonth, currentYear);
+
+        const response = {
+            status: 0,
+            username: SessionData[0].username,
+            account: {
+                balance: accountdata.balance,
+                balance_chip: accountdata.balance_chip,
+                deposit: dw.deposit,
+                withdraw: dw.withdraw,
+            }
+        }
+
+        return res.status(200).json(response);
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: 'Internal Server Error' });
+    }
+})
+
+app.get('/app/bank/transition', async (req, res) => {
+    const { session_id, month, year } = req.query;
+
+    if (!session_id) {
+        return res.status(400).json({ status: 1, message: "Undefined session_id" });
+    }
+
+    const SessionData = await utilts.getBankSession(hewkawbank_db, session_id);
+
+    if (!SessionData) {
+        return res.status(400).json({ status: 6, message: 'Undefined Session' });
+    }
+
+    const currentTimestamp = Date.now();
+    const sessionExpireTimestamp = new Date(SessionData[0].expire).getTime();
+
+    if (currentTimestamp > sessionExpireTimestamp) {
+        return res.status(401).json({ status: 7, message: 'Session Expired' });
+    }
+
+    try {
+        let accountdata = await utilts.getBankAccount(hewkawbank_db, SessionData[0].username);
+
+        if (!accountdata) {
+            await utilts.newBankAccount(hewkawbank_db, SessionData[0].username);
+            accountdata = await utilts.getBankAccount(hewkawbank_db, SessionData[0].username);
+        }
+
+        const dw = await utilts.getBankTransition(hewkawbank_db, SessionData[0].username, month, year);
+
+        const response = {
+            status: 0,
+            username: SessionData[0].username,
+            account: {
+                balance: accountdata.balance,
+                balance_chip: accountdata.balance_chip,
+                deposit: dw.deposit,
+                withdraw: dw.withdraw,
+                transition: {
+                    deposits: dw.transition.deposits,
+                    withdraws: dw.transition.withdraws,
+                    convert_to_puas: dw.transition.convert_to_puas,
+                    convert_to_thbs: dw.transition.convert_to_thbs
+                }
+            }
+        }
+
+        return res.status(200).json(response);
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: 'Internal Server Error' });
+    }
+})
+
+app.post('/app/bank/deposit', async (req, res) => {
+    let { session_id, amount } = req.body;
+
+    if (!session_id) {
+        return res.status(400).json({ status: 1, message: "Undefined session_id" });
+    } else if (!amount) {
+        return res.status(400).json({ status: 8, message: "Undefined amount" });
+    }
+
+    amount = parseInt(amount);
+    if (!utilts.isInt(amount)) {
+        return res.status(400).json({ status: 8, message: 'Allow amount only integer' });
+    }
+
+    const SessionData = await utilts.getBankSession(hewkawbank_db, session_id);
+
+    if (!SessionData) {
+        return res.status(400).json({ status: 6, message: 'Undefined Session' });
+    }
+
+    const currentTimestamp = Date.now();
+    const sessionExpireTimestamp = new Date(SessionData[0].expire).getTime();
+
+    if (currentTimestamp > sessionExpireTimestamp) {
+        return res.status(401).json({ status: 7, message: 'Session Expired' });
+    }
+
+    try {
+        let accountdata = await utilts.getBankAccount(hewkawbank_db, SessionData[0].username);
+
+        if (!accountdata) {
+            await utilts.newBankAccount(hewkawbank_db, SessionData[0].username);
+            accountdata = await utilts.getBankAccount(hewkawbank_db, SessionData[0].username);
+        }
+
+        await utilts.newBankTransition(hewkawbank_db, SessionData[0].username, "deposit", amount);
+
+        const balance = parseInt(accountdata.balance) + parseInt(amount);
+
+        await utilts.updateBankAccount(hewkawbank_db, SessionData[0].username, "balance", balance);
+
+        const response = {
+            status: 0,
+            message: `Deposit ${amount} to ${SessionData[0].username}!`
+        }
+
+        return res.status(201).json(response);
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+app.post('/app/bank/withdraw', async (req, res) => {
+    let { session_id, amount, currency } = req.body;
+
+    if (!session_id) {
+        return res.status(400).json({ status: 1, message: "Undefined session_id" });
+    } else if (!amount) {
+        return res.status(400).json({ status: 8, message: "Undefined amount" });
+    } else if (!currency) {
+        return res.status(400).json({ status: 9, message: "Undefined currency" });
+    }
+
+    if (!currency === "thb" && !currency === "pua") {
+        return res.status(400).json({ status: 10, message: "Unavailable currency" });
+    }
+
+    amount = parseInt(amount);
+    if (!utilts.isInt(amount)) {
+        return res.status(400).json({ status: 8, message: 'Allow amount only integer' });
+    }
+
+    const SessionData = await utilts.getBankSession(hewkawbank_db, session_id);
+
+    if (!SessionData) {
+        return res.status(400).json({ status: 6, message: 'Undefined Session' });
+    }
+
+    const currentTimestamp = Date.now();
+    const sessionExpireTimestamp = new Date(SessionData[0].expire).getTime();
+
+    if (currentTimestamp > sessionExpireTimestamp) {
+        return res.status(401).json({ status: 7, message: 'Session Expired' });
+    }
+
+    try {
+        let accountdata = await utilts.getBankAccount(hewkawbank_db, SessionData[0].username);
+
+        if (!accountdata) {
+            await utilts.newBankAccount(hewkawbank_db, SessionData[0].username);
+            accountdata = await utilts.getBankAccount(hewkawbank_db, SessionData[0].username);
+        }
+
+        if (currency === 'thb') {
+            await utilts.newBankTransition(hewkawbank_db, SessionData[0].username, "withdraw_thb", amount);
+
+            const balance = parseInt(accountdata.balance) - parseInt(amount);
+
+            await utilts.updateBankAccount(hewkawbank_db, SessionData[0].username, "balance", balance);
+        } else if (currency === 'pua') {
+            await utilts.newBankTransition(hewkawbank_db, SessionData[0].username, "withdraw_pua", amount);
+
+            const balance = parseInt(accountdata.balance_chip) - parseInt(amount);
+
+            await utilts.updateBankAccount(hewkawbank_db, SessionData[0].username, "balance_pua", balance);
+        }
+
+        const response = {
+            status: 0,
+            message: `Withdraw ${amount} to ${SessionData[0].username}!`
+        }
+
+        return res.status(201).json(response);
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+app.post('/app/bank/convert/pua', async (req, res) => {
+    let { session_id, amount } = req.body;
+
+    if (!session_id) {
+        return res.status(400).json({ status: 1, message: "Undefined session_id" });
+    } else if (!amount) {
+        return res.status(400).json({ status: 8, message: "Undefined amount" });
+    }
+
+    amount = parseInt(amount);
+    if (!utilts.isInt(amount)) {
+        return res.status(400).json({ status: 8, message: 'Allow amount only integer' });
+    }
+
+    const SessionData = await utilts.getBankSession(hewkawbank_db, session_id);
+
+    if (!SessionData) {
+        return res.status(400).json({ status: 6, message: 'Undefined Session' });
+    }
+
+    const currentTimestamp = Date.now();
+    const sessionExpireTimestamp = new Date(SessionData[0].expire).getTime();
+
+    if (currentTimestamp > sessionExpireTimestamp) {
+        return res.status(401).json({ status: 7, message: 'Session Expired' });
+    }
+
+    try {
+        let accountdata = await utilts.getBankAccount(hewkawbank_db, SessionData[0].username);
+
+        if (!accountdata) {
+            await utilts.newBankAccount(hewkawbank_db, SessionData[0].username);
+            accountdata = await utilts.getBankAccount(hewkawbank_db, SessionData[0].username);
+        }
+
+        await utilts.newBankTransition(hewkawbank_db, SessionData[0].username, "convert_to_pua", amount);
+
+        const balance = parseInt(accountdata.balance) - parseInt(amount);
+        const balance_pua = parseInt(accountdata.balance_chip) + parseInt(amount);
+
+        await utilts.updateBankAccount(hewkawbank_db, SessionData[0].username, "balance", balance);
+        await utilts.updateBankAccount(hewkawbank_db, SessionData[0].username, "balance_pua", balance_pua);
+
+        const response = {
+            status: 0,
+            message: `Convert ${amount} to PUA!`
+        }
+
+        return res.status(201).json(response);
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+app.post('/app/bank/convert/thb', async (req, res) => {
+    let { session_id, amount } = req.body;
+
+    if (!session_id) {
+        return res.status(400).json({ status: 1, message: "Undefined session_id" });
+    } else if (!amount) {
+        return res.status(400).json({ status: 8, message: "Undefined amount" });
+    }
+
+    amount = parseInt(amount);
+    if (!utilts.isInt(amount)) {
+        return res.status(400).json({ status: 8, message: 'Allow amount only integer' });
+    }
+
+    const SessionData = await utilts.getBankSession(hewkawbank_db, session_id);
+
+    if (!SessionData) {
+        return res.status(400).json({ status: 6, message: 'Undefined Session' });
+    }
+
+    const currentTimestamp = Date.now();
+    const sessionExpireTimestamp = new Date(SessionData[0].expire).getTime();
+
+    if (currentTimestamp > sessionExpireTimestamp) {
+        return res.status(401).json({ status: 7, message: 'Session Expired' });
+    }
+
+    try {
+        let accountdata = await utilts.getBankAccount(hewkawbank_db, SessionData[0].username);
+
+        if (!accountdata) {
+            await utilts.newBankAccount(hewkawbank_db, SessionData[0].username);
+            accountdata = await utilts.getBankAccount(hewkawbank_db, SessionData[0].username);
+        }
+
+        await utilts.newBankTransition(hewkawbank_db, SessionData[0].username, "convert_to_thb", amount);
+
+        const balance = parseInt(accountdata.balance) + parseInt(amount);
+        const balance_pua = parseInt(accountdata.balance_chip) - parseInt(amount);
+
+        await utilts.updateBankAccount(hewkawbank_db, SessionData[0].username, "balance", balance);
+        await utilts.updateBankAccount(hewkawbank_db, SessionData[0].username, "balance_pua", balance_pua);
+
+        const response = {
+            status: 0,
+            message: `Convert ${amount} to THB!`
+        }
+
+        return res.status(201).json(response);
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: 'Internal Server Error' });
     }
 });
 

@@ -81,7 +81,6 @@ async function getHstudioConfig(DB, id) {
             }
         });
     });
-    ;
 }
 
 async function newHstudioConfig(DB, id) {
@@ -212,7 +211,7 @@ async function getM2BotVoiceChannel(DB, ChannelID) {
                     reject(err);
                 } else {
                     if (results.length === 0) {
-                        resolve(null);
+                        resolve([]);
                     } else {
                         resolve(results);
                     }
@@ -237,9 +236,225 @@ async function getM2BotVoiceChannel(DB, ChannelID) {
     }
 }
 
+async function newBankSession(DB, SessionId, Username, DisplayName, ProfileUrl, Expire) {
+    return new Promise((resolve, reject) => {
+        DB.query("INSERT INTO `session`(`session_id`, `username`, `displayname`, `profileurl`, `expire`) VALUES (?, ?, ?, ?, ?)", [SessionId, Username, DisplayName, ProfileUrl, Expire], (err, results) => {
+            if (err) {
+                console.error('Error executing MySQL query:', err);
+                reject(err);
+            } else {
+                resolve(results);
+            }
+        })
+    });
+}
+
+async function getBankSession(DB, SessionId) {
+    return new Promise((resolve, reject) => {
+        DB.query('SELECT * FROM `session` WHERE `session_id` = ?', [SessionId], (err, results) => {
+            if (err) {
+                console.error('Error executing MySQL query:', err);
+                reject(err);
+            } else {
+                if (results.length === 0) {
+                    resolve(null);
+                } else {
+                    resolve(results);
+                }
+            }
+        });
+    });
+}
+
+async function clearBankSession(DB, SessionId) {
+    return new Promise((resolve, reject) => {
+        DB.query("DELETE FROM `session` WHERE `session_id` = ?;", [SessionId], (err, results) => {
+            if (err) {
+                console.error('Error executing MySQL query:', err);
+                reject(err);
+            } else {
+                resolve(results);
+            }
+        })
+    });
+}
+
+async function getBankAccount(DB, username) {
+    return new Promise((resolve, reject) => {
+        DB.query('SELECT * FROM account WHERE username = ?', [username], (err, results) => {
+            if (err) {
+                console.error('Error executing MySQL query:', err);
+                reject(err);
+            } else {
+                if (results.length === 0) {
+                    resolve(null);
+                } else {
+                    resolve(results[0]);
+                }
+            }
+        });
+    });
+}
+
+async function newBankAccount(DB, username) {
+    return new Promise((resolve, reject) => {
+        DB.query("INSERT INTO `account`(`username`) VALUES (?)", [username], (err, results) => {
+            if (err) {
+                console.error('Error executing MySQL query:', err);
+                reject(err);
+            } else {
+                resolve(results);
+            }
+        })
+    });
+}
+
+async function updateBankAccount(DB, username, type, balance) {
+    if (type === 'balance') {
+        new Promise((resolve, reject) => {
+            DB.query("UPDATE `account` SET `balance`= ? WHERE `username` = ?", [balance, username], (err, results) => {
+                if (err) {
+                    console.error('Error executing MySQL query:', err);
+                    reject(err);
+                } else {
+                    resolve(results);
+                }
+            })
+        });
+    } else if (type === 'balance_pua') {
+        new Promise((resolve, reject) => {
+            DB.query("UPDATE `account` SET `balance_chip`= ? WHERE `username` = ?", [balance, username], (err, results) => {
+                if (err) {
+                    console.error('Error executing MySQL query:', err);
+                    reject(err);
+                } else {
+                    resolve(results);
+                }
+            })
+        });
+    }
+}
+
+async function newBankTransition(DB, username, type, amount) {
+    return new Promise((resolve, reject) => {
+        DB.query("INSERT INTO `transition`(`account`, `type`, `amount`) VALUES (?, ?, ?)", [username, type, amount], (err, results) => {
+            if (err) {
+                console.error('Error executing MySQL query:', err);
+                reject(err);
+            } else {
+                resolve(results);
+            }
+        })
+    });
+}
+
+async function getBankDeposit(DB, username, month, year) {
+    return new Promise((resolve, reject) => {
+        DB.query('SELECT * FROM `transition` WHERE `account`= ? AND `type`= "deposit" AND MONTH(`timestamp`) = ? AND YEAR(`timestamp`) = ?;', [username, month, year], (err, results) => {
+            if (err) {
+                console.error('Error executing MySQL query:', err);
+                reject(err);
+            } else {
+                if (results.length === 0) {
+                    resolve([]);
+                } else {
+                    resolve(results);
+                }
+            }
+        });
+    });
+}
+
+async function getBankWithdraw(DB, username, month, year) {
+    return new Promise((resolve, reject) => {
+        DB.query("SELECT * FROM `transition` WHERE `account` = ? AND (`type` = 'withdraw' OR `type` = 'withdraw_thb' OR `type` = 'withdraw_pua') AND MONTH(`timestamp`) = ? AND YEAR(`timestamp`) = ?;", [username, month, year], (err, results) => {
+            if (err) {
+                console.error('Error executing MySQL query:', err);
+                reject(err);
+            } else {
+                if (results.length === 0) {
+                    resolve([]);
+                } else {
+                    resolve(results);
+                }
+            }
+        });
+    });
+}
+
+async function getBankConvertToPUA(DB, username, month, year) {
+    return new Promise((resolve, reject) => {
+        DB.query("SELECT * FROM `transition` WHERE `account` = ? AND (`type` = 'convert_to_pua') AND MONTH(`timestamp`) = ? AND YEAR(`timestamp`) = ?;", [username, month, year], (err, results) => {
+            if (err) {
+                console.error('Error executing MySQL query:', err);
+                reject(err);
+            } else {
+                if (results.length === 0) {
+                    resolve([]);
+                } else {
+                    resolve(results);
+                }
+            }
+        });
+    });
+}
+
+async function getBankConvertToTHB(DB, username, month, year) {
+    return new Promise((resolve, reject) => {
+        DB.query("SELECT * FROM `transition` WHERE `account` = ? AND (`type` = 'convert_to_thb') AND MONTH(`timestamp`) = ? AND YEAR(`timestamp`) = ?;", [username, month, year], (err, results) => {
+            if (err) {
+                console.error('Error executing MySQL query:', err);
+                reject(err);
+            } else {
+                if (results.length === 0) {
+                    resolve([]);
+                } else {
+                    resolve(results);
+                }
+            }
+        });
+    });
+}
+
+async function getBankTransition(DB, username, month, year) {
+
+    const deposit = await getBankDeposit(DB, username, month, year);
+    const withdraw = await getBankWithdraw(DB, username, month, year);
+    const convert_to_pua = await getBankConvertToPUA(DB, username, month, year);
+    const convert_to_thb = await getBankConvertToTHB(DB, username, month, year);
+
+    let deposit_amount = 0;
+    let withdraw_amount = 0;
+
+    deposit.forEach(item => {
+        deposit_amount = deposit_amount + item.amount;
+    });
+
+    withdraw.forEach(item => {
+        withdraw_amount = withdraw_amount + item.amount;
+    });
+
+
+    return {
+        deposit: deposit_amount,
+        withdraw: withdraw_amount,
+        transition: {
+            deposits: deposit,
+            withdraws: withdraw,
+            convert_to_puas: convert_to_pua,
+            convert_to_thbs: convert_to_thb
+        }
+    };
+}
+
+function isInt(variable) {
+    return typeof variable === 'number' && Number.isInteger(variable);
+}
+
 module.exports = {
     generateRandomString,
     isURL,
+    isInt,
     getCpuLoad,
     getAuth,
     getProfile,
@@ -251,4 +466,12 @@ module.exports = {
     newM2BotVoiceChannel,
     getM2BotVoiceChannel,
     deleteM2BotVoiceChannel,
+    newBankSession,
+    getBankSession,
+    clearBankSession,
+    getBankAccount,
+    newBankAccount,
+    updateBankAccount,
+    newBankTransition,
+    getBankTransition,
 };
