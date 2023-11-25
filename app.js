@@ -163,7 +163,7 @@ app.post('/oauth2/login', (req, res) => {
         return res.status(400).json({ status: 400, message: "No redirect_url Found!" });
     }
 
-    if (!isURL(postData.redirect_url)) {
+    if (!utilts.isURL(postData.redirect_url)) {
         return res.status(401).json({ status: 401, message: "Unidentify redirect_url!" });
     }
 
