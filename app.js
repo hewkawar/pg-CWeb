@@ -417,6 +417,7 @@ app.delete('/app/m2bot/voicechat', async (req, res) => {
 
 app.get('/app/bank/session', async (req, res) => {
     const { session_id } = req.query;
+    const userAgent = req.get('User-Agent');
 
     if (!session_id) {
         return res.status(400).json({ status: 1, message: "Undefined session_id" });
@@ -428,27 +429,26 @@ app.get('/app/bank/session', async (req, res) => {
         return res.status(400).json({ status: 6, message: 'Undefined Session' });
     }
 
-    const currentTimestamp = Date.now();
-    const sessionExpireTimestamp = new Date(SessionData[0].expire).getTime();
-
-    if (currentTimestamp > sessionExpireTimestamp) {
+    if (SessionData[0].status === 'logouted') {
         return res.status(401).json({ status: 7, message: 'Session Expired' });
     }
 
+    if (SessionData[0].useragent !== userAgent) {
+        return res.status(401).json({ status: 11, message: 'Different User-Agent' });
+    }
 
     const response = {
-        session_id: SessionData[0].session_id,
         username: SessionData[0].username,
         displayname: SessionData[0].displayname,
         profileurl: SessionData[0].profileurl,
-        expire: SessionData[0].expire,
     }
 
     return res.status(200).json(response);
 })
 
 app.post('/app/bank/session', async (req, res) => {
-    const { username, displayname, profileurl, expire } = req.body;
+    const { username, displayname, profileurl } = req.body;
+    const userAgent = req.get('User-Agent');
 
     const session_id = utilts.generateRandomString(50);
 
@@ -458,11 +458,9 @@ app.post('/app/bank/session', async (req, res) => {
         return res.status(400).json({ status: 2, message: "Undefined displayname" });
     } else if (!profileurl) {
         return res.status(400).json({ status: 3, message: "Undefined profileurl" });
-    } else if (!expire) {
-        return res.status(400).json({ status: 4, message: "Undefined expire" });
     }
 
-    const insert = utilts.newBankSession(hewkawbank_db, session_id, username, displayname, profileurl, expire)
+    const insert = utilts.newBankSession(hewkawbank_db, session_id, username, displayname, profileurl, userAgent)
 
     if (insert) {
         const Response = {
@@ -473,7 +471,6 @@ app.post('/app/bank/session', async (req, res) => {
                 username: username,
                 displayname: displayname,
                 profileurl: profileurl,
-                expire: expire,
             }
         };
 
@@ -508,6 +505,7 @@ app.delete('/app/bank/session', async (req, res) => {
 
 app.get('/app/bank/balance', async (req, res) => {
     const { session_id } = req.query;
+    const userAgent = req.get('User-Agent');
 
     if (!session_id) {
         return res.status(400).json({ status: 1, message: "Undefined session_id" });
@@ -519,11 +517,12 @@ app.get('/app/bank/balance', async (req, res) => {
         return res.status(400).json({ status: 6, message: 'Undefined Session' });
     }
 
-    const currentTimestamp = Date.now();
-    const sessionExpireTimestamp = new Date(SessionData[0].expire).getTime();
-
-    if (currentTimestamp > sessionExpireTimestamp) {
+    if (SessionData[0].status === 'logouted') {
         return res.status(401).json({ status: 7, message: 'Session Expired' });
+    }
+
+    if (SessionData[0].useragent !== userAgent) {
+        return res.status(401).json({ status: 11, message: 'Different User-Agent' });
     }
 
     try {
@@ -560,6 +559,7 @@ app.get('/app/bank/balance', async (req, res) => {
 
 app.get('/app/bank/transition', async (req, res) => {
     const { session_id, month, year } = req.query;
+    const userAgent = req.get('User-Agent');
 
     if (!session_id) {
         return res.status(400).json({ status: 1, message: "Undefined session_id" });
@@ -571,11 +571,12 @@ app.get('/app/bank/transition', async (req, res) => {
         return res.status(400).json({ status: 6, message: 'Undefined Session' });
     }
 
-    const currentTimestamp = Date.now();
-    const sessionExpireTimestamp = new Date(SessionData[0].expire).getTime();
-
-    if (currentTimestamp > sessionExpireTimestamp) {
+    if (SessionData[0].status === 'logouted') {
         return res.status(401).json({ status: 7, message: 'Session Expired' });
+    }
+
+    if (SessionData[0].useragent !== userAgent) {
+        return res.status(401).json({ status: 11, message: 'Different User-Agent' });
     }
 
     try {
@@ -614,6 +615,7 @@ app.get('/app/bank/transition', async (req, res) => {
 
 app.post('/app/bank/deposit', async (req, res) => {
     let { session_id, amount } = req.body;
+    const userAgent = req.get('User-Agent');
 
     if (!session_id) {
         return res.status(400).json({ status: 1, message: "Undefined session_id" });
@@ -632,11 +634,12 @@ app.post('/app/bank/deposit', async (req, res) => {
         return res.status(400).json({ status: 6, message: 'Undefined Session' });
     }
 
-    const currentTimestamp = Date.now();
-    const sessionExpireTimestamp = new Date(SessionData[0].expire).getTime();
-
-    if (currentTimestamp > sessionExpireTimestamp) {
+    if (SessionData[0].status === 'logouted') {
         return res.status(401).json({ status: 7, message: 'Session Expired' });
+    }
+
+    if (SessionData[0].useragent !== userAgent) {
+        return res.status(401).json({ status: 11, message: 'Different User-Agent' });
     }
 
     try {
@@ -658,6 +661,48 @@ app.post('/app/bank/deposit', async (req, res) => {
             message: `Deposit ${amount} to ${SessionData[0].username}!`
         }
 
+        let lineaccount = await utilts.getBankConnectAccountLine(hewkawbank_db, SessionData[0].username);
+
+        accountdata = await utilts.getBankAccount(hewkawbank_db, SessionData[0].username);
+
+        const username = SessionData[0].username;
+        const date = utilts.getFormattedDate();
+        const time = utilts.getCurrentTime();
+        const total = parseInt(accountdata.balance) + parseInt(accountdata.balance_chip);
+        const cash = parseInt(accountdata.balance);
+        const pua_chip = parseInt(accountdata.balance_chip);
+
+        if (lineaccount.uuid) {
+            await axios.post('https://api.line.me/v2/bot/message/push', {
+                "to": lineaccount.uuid,
+                "messages": [
+                    {
+                        "type": "text",
+                        "text": `รายการเงินเข้า\n________________\nบัญชี : ${username}\nวันที่ : ${date}\nเวลา : ${time}\nจำนวนเงิน : ${amount}\n________________\nยอดเงินรวม : ${total} บาท\nเงินสด : ${cash} บาท\nเหรียญ Pua : ${pua_chip} Pua`
+                    }
+                ]
+            }, {
+                headers: {
+                    "Authorization": `Bearer 1hGj85AaJO3gjfLa5mCUpqwEuxE0SXGR5T1a1AUBMdkAVDHzRCuVQlgJbabDFsH2O9x66c8WpP9eqCrqBNXQU4FjEeP5cJ6R7gLVgZPJeR0j3bo7xhdSdvJDsHv1Rl9fj0uMhKRTR4GH6855vxjBhwdB04t89/1O/w1cDnyilFU=`
+                }
+            }).then(function (response) {
+            }).catch(function (error) {
+            });
+        }
+        
+        await axios.post("https://discord.com/api/webhooks/1178009024143298590/XNR1JDPHw8sXrYRJ81Rs1s8h7s5y5sJSIZhG4XJA1LfBlNoos5RWWpHMkd-G3-Ldh4Vr", {
+            embeds: [
+                {
+                    author: {
+                        name: `${SessionData[0].username}`,
+                        icon_url: `${SessionData[0].profileurl}`
+                    },
+                    title: `Deposited ${amount} THB.`,
+                    color: discord.Colors.Green,
+                    timestamp: new Date().toISOString(),
+                },
+            ]
+        });
         return res.status(201).json(response);
     } catch (error) {
         console.error(error);
@@ -667,6 +712,7 @@ app.post('/app/bank/deposit', async (req, res) => {
 
 app.post('/app/bank/withdraw', async (req, res) => {
     let { session_id, amount, currency } = req.body;
+    const userAgent = req.get('User-Agent');
 
     if (!session_id) {
         return res.status(400).json({ status: 1, message: "Undefined session_id" });
@@ -691,11 +737,12 @@ app.post('/app/bank/withdraw', async (req, res) => {
         return res.status(400).json({ status: 6, message: 'Undefined Session' });
     }
 
-    const currentTimestamp = Date.now();
-    const sessionExpireTimestamp = new Date(SessionData[0].expire).getTime();
-
-    if (currentTimestamp > sessionExpireTimestamp) {
+    if (SessionData[0].status === 'logouted') {
         return res.status(401).json({ status: 7, message: 'Session Expired' });
+    }
+
+    if (SessionData[0].useragent !== userAgent) {
+        return res.status(401).json({ status: 11, message: 'Different User-Agent' });
     }
 
     try {
@@ -725,6 +772,48 @@ app.post('/app/bank/withdraw', async (req, res) => {
             message: `Withdraw ${amount} to ${SessionData[0].username}!`
         }
 
+        let lineaccount = await utilts.getBankConnectAccountLine(hewkawbank_db, SessionData[0].username);
+
+        accountdata = await utilts.getBankAccount(hewkawbank_db, SessionData[0].username);
+
+        const username = SessionData[0].username;
+        const date = utilts.getFormattedDate();
+        const time = utilts.getCurrentTime();
+        const total = parseInt(accountdata.balance) + parseInt(accountdata.balance_chip);
+        const cash = parseInt(accountdata.balance);
+        const pua_chip = parseInt(accountdata.balance_chip);
+
+        if (lineaccount.uuid) {
+            await axios.post('https://api.line.me/v2/bot/message/push', {
+                "to": lineaccount.uuid,
+                "messages": [
+                    {
+                        "type": "text",
+                        "text": `รายการเงินออก\n________________\nบัญชี : ${username}\nวันที่ : ${date}\nเวลา : ${time}\nจำนวนเงิน : ${amount}\n________________\nยอดเงินรวม : ${total} บาท\nเงินสด : ${cash} บาท\nเหรียญ Pua : ${pua_chip} Pua`
+                    }
+                ]
+            }, {
+                headers: {
+                    "Authorization": `Bearer 1hGj85AaJO3gjfLa5mCUpqwEuxE0SXGR5T1a1AUBMdkAVDHzRCuVQlgJbabDFsH2O9x66c8WpP9eqCrqBNXQU4FjEeP5cJ6R7gLVgZPJeR0j3bo7xhdSdvJDsHv1Rl9fj0uMhKRTR4GH6855vxjBhwdB04t89/1O/w1cDnyilFU=`
+                }
+            }).then(function (response) {
+            }).catch(function (error) {
+            });
+        }
+
+        await axios.post("https://discord.com/api/webhooks/1178009024143298590/XNR1JDPHw8sXrYRJ81Rs1s8h7s5y5sJSIZhG4XJA1LfBlNoos5RWWpHMkd-G3-Ldh4Vr", {
+            embeds: [
+                {
+                    author: {
+                        name: `${SessionData[0].username}`,
+                        icon_url: `${SessionData[0].profileurl}`
+                    },
+                    title: `Withdrawed ${amount} THB.`,
+                    color: discord.Colors.Red,
+                    timestamp: new Date().toISOString(),
+                },
+            ]
+        });
         return res.status(201).json(response);
     } catch (error) {
         console.error(error);
@@ -734,6 +823,7 @@ app.post('/app/bank/withdraw', async (req, res) => {
 
 app.post('/app/bank/convert/pua', async (req, res) => {
     let { session_id, amount } = req.body;
+    const userAgent = req.get('User-Agent');
 
     if (!session_id) {
         return res.status(400).json({ status: 1, message: "Undefined session_id" });
@@ -752,11 +842,12 @@ app.post('/app/bank/convert/pua', async (req, res) => {
         return res.status(400).json({ status: 6, message: 'Undefined Session' });
     }
 
-    const currentTimestamp = Date.now();
-    const sessionExpireTimestamp = new Date(SessionData[0].expire).getTime();
-
-    if (currentTimestamp > sessionExpireTimestamp) {
+    if (SessionData[0].status === 'logouted') {
         return res.status(401).json({ status: 7, message: 'Session Expired' });
+    }
+
+    if (SessionData[0].useragent !== userAgent) {
+        return res.status(401).json({ status: 11, message: 'Different User-Agent' });
     }
 
     try {
@@ -780,6 +871,48 @@ app.post('/app/bank/convert/pua', async (req, res) => {
             message: `Convert ${amount} to PUA!`
         }
 
+        let lineaccount = await utilts.getBankConnectAccountLine(hewkawbank_db, SessionData[0].username);
+
+        accountdata = await utilts.getBankAccount(hewkawbank_db, SessionData[0].username);
+
+        const username = SessionData[0].username;
+        const date = utilts.getFormattedDate();
+        const time = utilts.getCurrentTime();
+        const total = parseInt(accountdata.balance) + parseInt(accountdata.balance_chip);
+        const cash = parseInt(accountdata.balance);
+        const pua_chip = parseInt(accountdata.balance_chip);
+
+        if (lineaccount.uuid) {
+            await axios.post('https://api.line.me/v2/bot/message/push', {
+                "to": lineaccount.uuid,
+                "messages": [
+                    {
+                        "type": "text",
+                        "text": `รายการแปลงสกุลเงิน\nแปลงเป็นสกุล Baht\n________________\nบัญชี : ${username}\nวันที่ : ${date}\nเวลา : ${time}\nจำนวนเงิน : ${amount}\n________________\nยอดเงินรวม : ${total} บาท\nเงินสด : ${cash} บาท\nเหรียญ Pua : ${pua_chip} Pua`
+                    }
+                ]
+            }, {
+                headers: {
+                    "Authorization": `Bearer 1hGj85AaJO3gjfLa5mCUpqwEuxE0SXGR5T1a1AUBMdkAVDHzRCuVQlgJbabDFsH2O9x66c8WpP9eqCrqBNXQU4FjEeP5cJ6R7gLVgZPJeR0j3bo7xhdSdvJDsHv1Rl9fj0uMhKRTR4GH6855vxjBhwdB04t89/1O/w1cDnyilFU=`
+                }
+            }).then(function (response) {
+            }).catch(function (error) {
+            });
+        }
+
+        await axios.post("https://discord.com/api/webhooks/1178009024143298590/XNR1JDPHw8sXrYRJ81Rs1s8h7s5y5sJSIZhG4XJA1LfBlNoos5RWWpHMkd-G3-Ldh4Vr", {
+            embeds: [
+                {
+                    author: {
+                        name: `${SessionData[0].username}`,
+                        icon_url: `${SessionData[0].profileurl}`
+                    },
+                    title: `Converted ${amount} THB to ${amount} PUA.`,
+                    color: discord.Colors.Blue,
+                    timestamp: new Date().toISOString(),
+                },
+            ]
+        });
         return res.status(201).json(response);
     } catch (error) {
         console.error(error);
@@ -789,6 +922,7 @@ app.post('/app/bank/convert/pua', async (req, res) => {
 
 app.post('/app/bank/convert/thb', async (req, res) => {
     let { session_id, amount } = req.body;
+    const userAgent = req.get('User-Agent');
 
     if (!session_id) {
         return res.status(400).json({ status: 1, message: "Undefined session_id" });
@@ -807,11 +941,12 @@ app.post('/app/bank/convert/thb', async (req, res) => {
         return res.status(400).json({ status: 6, message: 'Undefined Session' });
     }
 
-    const currentTimestamp = Date.now();
-    const sessionExpireTimestamp = new Date(SessionData[0].expire).getTime();
-
-    if (currentTimestamp > sessionExpireTimestamp) {
+    if (SessionData[0].status === 'logouted') {
         return res.status(401).json({ status: 7, message: 'Session Expired' });
+    }
+
+    if (SessionData[0].useragent !== userAgent) {
+        return res.status(401).json({ status: 11, message: 'Different User-Agent' });
     }
 
     try {
@@ -835,6 +970,48 @@ app.post('/app/bank/convert/thb', async (req, res) => {
             message: `Convert ${amount} to THB!`
         }
 
+        let lineaccount = await utilts.getBankConnectAccountLine(hewkawbank_db, SessionData[0].username);
+
+        accountdata = await utilts.getBankAccount(hewkawbank_db, SessionData[0].username);
+
+        const username = SessionData[0].username;
+        const date = utilts.getFormattedDate();
+        const time = utilts.getCurrentTime();
+        const total = parseInt(accountdata.balance) + parseInt(accountdata.balance_chip);
+        const cash = parseInt(accountdata.balance);
+        const pua_chip = parseInt(accountdata.balance_chip);
+
+        if (lineaccount.uuid) {
+            await axios.post('https://api.line.me/v2/bot/message/push', {
+                "to": lineaccount.uuid,
+                "messages": [
+                    {
+                        "type": "text",
+                        "text": `รายการแปลงสกุลเงิน\nแปลงเป็นสกุล Pua\n________________\nบัญชี : ${username}\nวันที่ : ${date}\nเวลา : ${time}\nจำนวนเงิน : ${amount}\n________________\nยอดเงินรวม : ${total} บาท\nเงินสด : ${cash} บาท\nเหรียญ Pua : ${pua_chip} Pua`
+                    }
+                ]
+            }, {
+                headers: {
+                    "Authorization": `Bearer 1hGj85AaJO3gjfLa5mCUpqwEuxE0SXGR5T1a1AUBMdkAVDHzRCuVQlgJbabDFsH2O9x66c8WpP9eqCrqBNXQU4FjEeP5cJ6R7gLVgZPJeR0j3bo7xhdSdvJDsHv1Rl9fj0uMhKRTR4GH6855vxjBhwdB04t89/1O/w1cDnyilFU=`
+                }
+            }).then(function (response) {
+            }).catch(function (error) {
+            });
+        }
+
+        await axios.post("https://discord.com/api/webhooks/1178009024143298590/XNR1JDPHw8sXrYRJ81Rs1s8h7s5y5sJSIZhG4XJA1LfBlNoos5RWWpHMkd-G3-Ldh4Vr", {
+            embeds: [
+                {
+                    author: {
+                        name: `${SessionData[0].username}`,
+                        icon_url: `${SessionData[0].profileurl}`
+                    },
+                    title: `Converted ${amount} PUA to ${amount} THB.`,
+                    color: discord.Colors.Blue,
+                    timestamp: new Date().toISOString(),
+                },
+            ]
+        });
         return res.status(201).json(response);
     } catch (error) {
         console.error(error);
@@ -842,21 +1019,186 @@ app.post('/app/bank/convert/thb', async (req, res) => {
     }
 });
 
+app.post('/app/bank/connect', async (req, res) => {
+    const { platform, uuid, username, session_id } = req.body;
+    const userAgent = req.get('User-Agent');
+
+    if (!session_id) {
+        return res.status(400).json({ status: 1, message: "Undefined session_id" });
+    } else if (!platform) {
+        return res.status(400).json({ status: 12, message: "Undefined platform" });
+    } else if (!uuid) {
+        return res.status(400).json({ status: 13, message: "Undefined uuid" });
+    } else if (!username) {
+        return res.status(400).json({ status: 14, message: "Undefined username" });
+    }
+
+    if (platform !== "line") {
+        return res.status(400).json({ status: 15, message: "Unsupport platform" });
+    }
+
+    const SessionData = await utilts.getBankSession(hewkawbank_db, session_id);
+
+    if (!SessionData) {
+        return res.status(400).json({ status: 6, message: 'Undefined Session' });
+    }
+
+    if (SessionData[0].status === 'logouted') {
+        return res.status(401).json({ status: 7, message: 'Session Expired' });
+    }
+
+    if (SessionData[0].useragent !== userAgent) {
+        return res.status(401).json({ status: 11, message: 'Different User-Agent' });
+    }
+
+    if (SessionData[0].username !== username) {
+        return res.status(401).json({ status: 16, message: 'Different username' });
+    }
+
+
+    try {
+        let accountdata = await utilts.getBankConnectAccountLine(hewkawbank_db, SessionData[0].username);
+
+        if (!accountdata) {
+            await utilts.newBankConnectAccountLine(hewkawbank_db, SessionData[0].username, uuid);
+            accountdata = await utilts.getBankConnectAccountLine(hewkawbank_db, SessionData[0].username);
+        }
+
+        await utilts.updateBankConnectAccountLine(hewkawbank_db, SessionData[0].username, uuid);
+
+        const response = {
+            status: 0,
+            message: `Connect to Line Success!`,
+            uuid: uuid
+        }
+
+        const access_token = "1hGj85AaJO3gjfLa5mCUpqwEuxE0SXGR5T1a1AUBMdkAVDHzRCuVQlgJbabDFsH2O9x66c8WpP9eqCrqBNXQU4FjEeP5cJ6R7gLVgZPJeR0j3bo7xhdSdvJDsHv1Rl9fj0uMhKRTR4GH6855vxjBhwdB04t89/1O/w1cDnyilFU=";
+
+        await axios.post('https://api.line.me/v2/bot/message/push', {
+            "to": uuid,
+            "messages": [
+                {
+                    "type": "text",
+                    "text": `เชื่อมต่อกับ ${SessionData[0].displayname} สำเร็จ!`
+                }
+            ]
+        }, {
+            headers: {
+                "Authorization": `Bearer ${access_token}`
+            }
+        }).then(function (response) {
+        }).catch(function (error) {
+        });
+
+        await axios.post("https://discord.com/api/webhooks/1178009024143298590/XNR1JDPHw8sXrYRJ81Rs1s8h7s5y5sJSIZhG4XJA1LfBlNoos5RWWpHMkd-G3-Ldh4Vr", {
+            embeds: [
+                {
+                    author: {
+                        name: `${SessionData[0].username}`,
+                        icon_url: `${SessionData[0].profileurl}`
+                    },
+                    title: `Connect to Line Success!`,
+                    color: discord.Colors.Purple,
+                    timestamp: new Date().toISOString(),
+                },
+            ]
+        });
+        return res.status(201).json(response);
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+app.post('/app/bank/line/webhook', async (req, res) => {
+    const access_token = "1hGj85AaJO3gjfLa5mCUpqwEuxE0SXGR5T1a1AUBMdkAVDHzRCuVQlgJbabDFsH2O9x66c8WpP9eqCrqBNXQU4FjEeP5cJ6R7gLVgZPJeR0j3bo7xhdSdvJDsHv1Rl9fj0uMhKRTR4GH6855vxjBhwdB04t89/1O/w1cDnyilFU=";
+    if (req.body.events) {
+        req.body.events.forEach(event => {
+            if (event.type === "message") {
+                if (event.message.type === "text") {
+                    if (event.message.text === "/link") {
+                        axios.post('https://api.line.me/v2/bot/message/reply', {
+                            "replyToken": event.replyToken,
+                            "messages": [
+                                {
+                                    "type": "template",
+                                    "altText": "เข้าสู่ระบบด้วย HewkawAr Gateway",
+                                    "template": {
+                                        "type": "buttons",
+                                        "title": "เข้าสู่ระบบด้วย HewkawAr Gateway",
+                                        "text": "คลิกที่ เข้าสู่ระบบ",
+                                        "actions": [
+                                            {
+                                                "type": "uri",
+                                                "label": "เข้าสู่ระบบ",
+                                                "uri": `https://bank.hewkawar.xyz/connect/line?uuid=${encodeURIComponent(event.source.userId)}`
+                                            }
+                                        ]
+                                    }
+                                }
+                            ]
+                        }, {
+                            headers: {
+                                "Authorization": `Bearer ${access_token}`
+                            }
+                        }).then(function (response) {
+                        }).catch(function (error) {
+                        });
+                    } else {
+                        axios.post('https://api.line.me/v2/bot/message/reply', {
+                            "replyToken": event.replyToken,
+                            "messages": [
+                                {
+                                    "type": "text",
+                                    "text": "ขออภัยบอทไม่สามารถตอบกลับได้"
+                                }
+                            ]
+                        }, {
+                            headers: {
+                                "Authorization": `Bearer ${access_token}`
+                            }
+                        }).then(function (response) {
+                        }).catch(function (error) {
+                        });
+                    }
+                } else {
+                    axios.post('https://api.line.me/v2/bot/message/reply', {
+                        "replyToken": event.replyToken,
+                        "messages": [
+                            {
+                                "type": "text",
+                                "text": "ขออภัยบอทไม่สามารถตอบกลับได้"
+                            }
+                        ]
+                    }, {
+                        headers: {
+                            "Authorization": `Bearer ${access_token}`
+                        }
+                    }).then(function (response) {
+                    }).catch(function (error) {
+                    });
+                }
+            }
+        });
+    }
+
+    return res.status(200).json(req.body);
+});
+
 const PORT = 3000;
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 
-    axios.post(webhook_url, {
-        embeds: [
-            {
-                title: 'HewkawAr API is Up',
-                description: `Target : **[api.hewkawar.xyz](https://api.hewkawar.xyz)**\nHewkawAr Database : ${hewkawar_db_c}\nHStudio Database : ${hstudio_db_c}\nHewkawAr Database : ${m2bot_db_c}`,
-                color: discord.Colors.Green,
-                timestamp: new Date().toISOString(),
-                thumbnail: { url: 'https://www.hewkawar.xyz/assets/uploads/up-arrow.png' },
-            },
-        ],
-        avatar_url: "https://www.hewkawar.xyz/assets/favicon.png",
-        username: "StatusTools"
-    });
+    // axios.post(webhook_url, {
+    //     embeds: [
+    //         {
+    //             title: 'HewkawAr API is Up',
+    //             description: `Target : **[api.hewkawar.xyz](https://api.hewkawar.xyz)**\nHewkawAr Database : ${hewkawar_db_c}\nHStudio Database : ${hstudio_db_c}\nHewkawAr Database : ${m2bot_db_c}`,
+    //             color: discord.Colors.Green,
+    //             timestamp: new Date().toISOString(),
+    //             thumbnail: { url: 'https://www.hewkawar.xyz/assets/uploads/up-arrow.png' },
+    //         },
+    //     ],
+    //     avatar_url: "https://www.hewkawar.xyz/assets/favicon.png",
+    //     username: "StatusTools"
+    // });
 });

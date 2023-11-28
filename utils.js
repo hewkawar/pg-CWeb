@@ -236,9 +236,9 @@ async function getM2BotVoiceChannel(DB, ChannelID) {
     }
 }
 
-async function newBankSession(DB, SessionId, Username, DisplayName, ProfileUrl, Expire) {
+async function newBankSession(DB, SessionId, Username, DisplayName, ProfileUrl, UserAgent) {
     return new Promise((resolve, reject) => {
-        DB.query("INSERT INTO `session`(`session_id`, `username`, `displayname`, `profileurl`, `expire`) VALUES (?, ?, ?, ?, ?)", [SessionId, Username, DisplayName, ProfileUrl, Expire], (err, results) => {
+        DB.query("INSERT INTO `session`(`session_id`, `username`, `displayname`, `profileurl`, `useragent`) VALUES (?, ?, ?, ?, ?)", [SessionId, Username, DisplayName, ProfileUrl, UserAgent], (err, results) => {
             if (err) {
                 console.error('Error executing MySQL query:', err);
                 reject(err);
@@ -268,7 +268,7 @@ async function getBankSession(DB, SessionId) {
 
 async function clearBankSession(DB, SessionId) {
     return new Promise((resolve, reject) => {
-        DB.query("DELETE FROM `session` WHERE `session_id` = ?;", [SessionId], (err, results) => {
+        DB.query("UPDATE `session` SET `status`= 'logouted' WHERE `session_id` = ?;", [SessionId], (err, results) => {
             if (err) {
                 console.error('Error executing MySQL query:', err);
                 reject(err);
@@ -451,6 +451,72 @@ function isInt(variable) {
     return typeof variable === 'number' && Number.isInteger(variable);
 }
 
+async function getBankConnectAccountLine(DB, username) {
+    return new Promise((resolve, reject) => {
+        DB.query('SELECT * FROM connect_to_line_live WHERE username = ?', [username], (err, results) => {
+            if (err) {
+                console.error('Error executing MySQL query:', err);
+                reject(err);
+            } else {
+                if (results.length === 0) {
+                    resolve(null);
+                } else {
+                    resolve(results[0]);
+                }
+            }
+        });
+    });
+}
+
+async function newBankConnectAccountLine(DB, username) {
+    return new Promise((resolve, reject) => {
+        DB.query("INSERT INTO `connect_to_line_live`(`username`) VALUES (?)", [username], (err, results) => {
+            if (err) {
+                console.error('Error executing MySQL query:', err);
+                reject(err);
+            } else {
+                resolve(results);
+            }
+        })
+    });
+}
+
+async function updateBankConnectAccountLine(DB, username, uuid) {
+    new Promise((resolve, reject) => {
+        DB.query("UPDATE `connect_to_line_live` SET `uuid`= ?, `status` = 'connected' WHERE `username` = ?", [uuid, username], (err, results) => {
+            if (err) {
+                console.error('Error executing MySQL query:', err);
+                reject(err);
+            } else {
+                resolve(results);
+            }
+        })
+    });
+}
+
+function getCurrentTime() {
+    const now = new Date();
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    const currentTime = `${hours}:${minutes}`;
+    return currentTime;
+}
+
+function getFormattedDate() {
+    const monthsInThai = [
+        'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
+        'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'
+    ];
+
+    const now = new Date();
+    const day = now.getDate().toString().padStart(2, '0');
+    const month = monthsInThai[now.getMonth()];
+    const year = now.getFullYear();
+
+    const formattedDate = `${day} ${month} ${year}`;
+    return formattedDate;
+}
+
 module.exports = {
     generateRandomString,
     isURL,
@@ -474,4 +540,9 @@ module.exports = {
     updateBankAccount,
     newBankTransition,
     getBankTransition,
+    getBankConnectAccountLine,
+    newBankConnectAccountLine,
+    updateBankConnectAccountLine,
+    getCurrentTime,
+    getFormattedDate,
 };
