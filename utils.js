@@ -496,9 +496,16 @@ async function updateBankConnectAccountLine(DB, username, uuid) {
 
 function getCurrentTime() {
     const now = new Date();
-    const hours = now.getHours().toString().padStart(2, '0');
-    const minutes = now.getMinutes().toString().padStart(2, '0');
+    
+    // Adjusting for GMT+7 timezone
+    const gmtOffset = 7;
+    const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+    const gmtTime = new Date(utc + 3600000 * gmtOffset);
+    
+    const hours = gmtTime.getHours().toString().padStart(2, '0');
+    const minutes = gmtTime.getMinutes().toString().padStart(2, '0');
     const currentTime = `${hours}:${minutes}`;
+    
     return currentTime;
 }
 
