@@ -306,7 +306,7 @@ app.get('/app/hstuido/config', async (req, res) => {
         let configdata = await utilts.getHstudioConfig(hstudio_db, id);
 
         if (!configdata) {
-            await newHstudioConfig(id);
+            await utilts.newHstudioConfig(id);
             configdata = await utilts.getHstudioConfig(hstudio_db, id);
         }
 
