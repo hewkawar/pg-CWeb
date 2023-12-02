@@ -689,7 +689,7 @@ app.post('/app/bank/deposit', async (req, res) => {
             }).catch(function (error) {
             });
         }
-        
+
         await axios.post("https://discord.com/api/webhooks/1178009024143298590/XNR1JDPHw8sXrYRJ81Rs1s8h7s5y5sJSIZhG4XJA1LfBlNoos5RWWpHMkd-G3-Ldh4Vr", {
             embeds: [
                 {
@@ -1109,6 +1109,7 @@ app.post('/app/bank/connect', async (req, res) => {
         return res.status(500).json({ error: 'Internal Server Error' });
     }
 });
+
 app.post('/app/bank/line/webhook', async (req, res) => {
     const access_token = "1hGj85AaJO3gjfLa5mCUpqwEuxE0SXGR5T1a1AUBMdkAVDHzRCuVQlgJbabDFsH2O9x66c8WpP9eqCrqBNXQU4FjEeP5cJ6R7gLVgZPJeR0j3bo7xhdSdvJDsHv1Rl9fj0uMhKRTR4GH6855vxjBhwdB04t89/1O/w1cDnyilFU=";
     if (req.body.events) {
@@ -1182,6 +1183,16 @@ app.post('/app/bank/line/webhook', async (req, res) => {
     }
 
     return res.status(200).json(req.body);
+});
+
+app.post('/donate/truemoney/voucher', async (req, res) => {
+    const { voucher } = req.body;
+
+    if (!voucher) return res.status(400).json({ status: 1, type: "FAIL", code: "VOUCHER_EMPTY", message: "voucher cannot be empty." });
+
+    const tw = await utilts.redeemVouchers("0610739386", voucher);
+
+    res.status(200).json(tw);
 });
 
 const PORT = 3000;

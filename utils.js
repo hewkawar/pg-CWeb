@@ -496,16 +496,16 @@ async function updateBankConnectAccountLine(DB, username, uuid) {
 
 function getCurrentTime() {
     const now = new Date();
-    
+
     // Adjusting for GMT+7 timezone
     const gmtOffset = 7;
     const utc = now.getTime() + now.getTimezoneOffset() * 60000;
     const gmtTime = new Date(utc + 3600000 * gmtOffset);
-    
+
     const hours = gmtTime.getHours().toString().padStart(2, '0');
     const minutes = gmtTime.getMinutes().toString().padStart(2, '0');
     const currentTime = `${hours}:${minutes}`;
-    
+
     return currentTime;
 }
 
@@ -522,6 +522,47 @@ function getFormattedDate() {
 
     const formattedDate = `${day} ${month} ${year}`;
     return formattedDate;
+}
+
+async function redeemVouchers(phone_number, voucher_code) {
+    voucher_code = voucher_code.replace('https://gift.truemoney.com/campaign/?v=', '');
+
+    if (!/^[a-z0-9]*$/i.test(voucher_code) || voucher_code.length <= 0) {
+        return {
+            status: 'FAIL',
+            reason: 'Voucher only allows English alphabets or numbers, and cannot be empty.',
+        };
+    }
+
+    const data = {
+        mobile: phone_number,
+        voucher_hash: voucher_code,
+    };
+
+    try {
+        const response = await axios.post(`https://gift.truemoney.com/campaign/vouchers/${voucher_code}/redeem`, data, {
+            headers: { 'Content-Type': 'application/json' },
+        });
+
+        const { status, message, data: responseData } = response.data.status;
+
+        if (status === 'SUCCESS') {
+            return {
+                status: 'SUCCESS',
+                amount: parseInt(responseData.voucher.redeemed_amount_baht),
+            };
+        } else {
+            return {
+                status: 'FAIL',
+                reason: message,
+            };
+        }
+    } catch (error) {
+        return {
+            status: 'FAIL',
+            reason: 'An error occurred while redeeming the voucher.',
+        };
+    }
 }
 
 module.exports = {
@@ -552,4 +593,5 @@ module.exports = {
     updateBankConnectAccountLine,
     getCurrentTime,
     getFormattedDate,
+    redeemVouchers,
 };
