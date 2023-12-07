@@ -1,4 +1,5 @@
 const axios = require('axios');
+const nodemailer = require('nodemailer');
 const os = require('os');
 
 function generateRandomString(length) {
@@ -565,6 +566,228 @@ async function redeemVouchers(phone_number, voucher_code) {
     }
 }
 
+async function newM2BotAuthSession(DB, SessionId, DiscordId) {
+    return new Promise((resolve, reject) => {
+        DB.query("INSERT INTO `session`(`session_id`, `discord_id`) VALUES (?,?)", [SessionId, DiscordId], (err, results) => {
+            if (err) {
+                console.error('Error executing MySQL query:', err);
+                reject(err);
+            } else {
+                resolve(results);
+            }
+        })
+    });
+}
+
+async function newM2BotAuthSessionOtp(DB, Session, Ref, Email, Otp) {
+    return new Promise((resolve, reject) => {
+        DB.query("INSERT INTO `otp`(`session`, `ref`, `email`, `otp`) VALUES (?, ?, ?, ?)", [Session, Ref, Email, Otp], (err, results) => {
+            if (err) {
+                console.error('Error executing MySQL query:', err);
+                reject(err);
+            } else {
+                resolve(results);
+            }
+        })
+    });
+}
+
+async function getM2BotAuthSession(DB, SessionId) {
+    return new Promise((resolve, reject) => {
+        DB.query('SELECT * FROM `session` WHERE `session_id` = ?;', [SessionId], (err, results) => {
+            if (err) {
+                console.error('Error executing MySQL query:', err);
+                reject(err);
+            } else {
+                if (results.length === 0) {
+                    resolve(null);
+                } else {
+                    resolve(results[0]);
+                }
+            }
+        });
+    });
+}
+
+async function verifyM2BotSession(DB, SessionId) {
+    await DB.query('SELECT * FROM `session` WHERE `session_id` = ?;', [SessionId], (err, results) => {
+        if (err) {
+            console.error('Error executing MySQL query:', err);
+            console.log(err);
+        } else {
+            if (results.length === 0) {
+                return false;
+            } else {
+                return true;
+            }
+        }
+    });
+}
+
+async function getM2BotAuthSessionOtp(DB, Session, Ref) {
+    return new Promise((resolve, reject) => {
+        DB.query('SELECT * FROM `otp` WHERE `session` = ? AND `ref` = ?', [Session, Ref], (err, results) => {
+            if (err) {
+                console.error('Error executing MySQL query:', err);
+                reject(err);
+            } else {
+                if (results.length === 0) {
+                    resolve(null);
+                } else {
+                    resolve(results[0]);
+                }
+            }
+        });
+    });
+}
+
+async function getM2BotAccount(DB, DiscordId, Email) {
+    if (DiscordId && Email) {
+        return new Promise((resolve, reject) => {
+            DB.query('SELECT * FROM `account` WHERE `discord_id` = ? AND `email` = ?', [DiscordId, Email], (err, results) => {
+                if (err) {
+                    console.error('Error executing MySQL query:', err);
+                    reject(err);
+                } else {
+                    if (results.length === 0) {
+                        resolve(null);
+                    } else {
+                        resolve(results[0]);
+                    }
+                }
+            });
+        });
+    } else if (DiscordId) {
+        return new Promise((resolve, reject) => {
+            DB.query('SELECT * FROM `account` WHERE `discord_id` = ?', [DiscordId], (err, results) => {
+                if (err) {
+                    console.error('Error executing MySQL query:', err);
+                    reject(err);
+                } else {
+                    if (results.length === 0) {
+                        resolve(null);
+                    } else {
+                        resolve(results[0]);
+                    }
+                }
+            });
+        });
+    } else if (Email) {
+        return new Promise((resolve, reject) => {
+            DB.query('SELECT * FROM `account` WHERE `email` = ?', [Email], (err, results) => {
+                if (err) {
+                    console.error('Error executing MySQL query:', err);
+                    reject(err);
+                } else {
+                    if (results.length === 0) {
+                        resolve(null);
+                    } else {
+                        resolve(results[0]);
+                    }
+                }
+            });
+        });
+    }
+}
+
+async function newM2BotAccount(DB, DiscordId, Email) {
+    return new Promise((resolve, reject) => {
+        DB.query("INSERT INTO `account`(`discord_id`, `email`, `status`) VALUES (?, ?, ?)", [DiscordId, Email, "verified"], (err, results) => {
+            if (err) {
+                console.error('Error executing MySQL query:', err);
+                reject(err);
+            } else {
+                resolve(results);
+            }
+        })
+    });
+}
+
+async function removeM2BotAuthSession(DB, SessionId) {
+    return new Promise((resolve, reject) => {
+        DB.query("DELETE FROM `session` WHERE `session_id` = ?", [SessionId], (err, results) => {
+            if (err) {
+                console.error('Error executing MySQL query:', err);
+                reject(err);
+            } else {
+                resolve(results);
+            }
+        })
+    });
+}
+
+async function updateStatusM2BotAuthSession(DB, SessionId, Status) {
+    return new Promise((resolve, reject) => {
+        DB.query("UPDATE `session` SET `status`= ? WHERE `session_id` = ?", [Status, SessionId], (err, results) => {
+            if (err) {
+                console.error('Error executing MySQL query:', err);
+                reject(err);
+            } else {
+                resolve(results);
+            }
+        })
+    });
+}
+
+async function updateStatusM2BotAuthSessionOtp(DB, SessionId, Status) {
+    return new Promise((resolve, reject) => {
+        DB.query("UPDATE `otp` SET `status`= ? WHERE `session` = ?", [Status, SessionId], (err, results) => {
+            if (err) {
+                console.error('Error executing MySQL query:', err);
+                reject(err);
+            } else {
+                resolve(results);
+            }
+        })
+    });
+}
+
+function generateEmailOTP(otpLength = 6) {
+    let otp = '';
+
+    for (let i = 0; i < otpLength; i++) {
+        otp += Math.floor(Math.random() * 10);
+    }
+
+    return otp;
+}
+
+function sendEmail(emailTo, subject, text, html) {
+    const transporter = nodemailer.createTransport({
+        host: 'us2.smtp.mailhostbox.com',
+        port: 587,
+        secure: false, // true for 465, false for other ports
+        auth: {
+            user: 'noreply@hewkawar.xyz', // Your email address
+            pass: '(Y%l)UEeU7' // Your email password or an app-specific password
+        }
+    });
+
+    // Email options
+    const mailOptions = {
+        from: 'noreply@hewkawar.xyz', // Sender address
+        to: emailTo, // Recipient address
+        subject: subject, // Subject line
+        text: text, // Plain text body
+        html: html // HTML body
+    };
+
+    // Send email
+    transporter.sendMail(mailOptions, (error, info) => {
+        if (error) {
+            return {
+                status: 1,
+                detail: error
+            };
+        } else {
+            return {
+                status: 0,
+                detail: info.response
+            };
+        }
+    });
+}
+
 module.exports = {
     generateRandomString,
     isURL,
@@ -594,4 +817,16 @@ module.exports = {
     getCurrentTime,
     getFormattedDate,
     redeemVouchers,
+    newM2BotAuthSession,
+    getM2BotAuthSession,
+    generateEmailOTP,
+    sendEmail,
+    newM2BotAuthSessionOtp,
+    verifyM2BotSession,
+    getM2BotAuthSessionOtp,
+    removeM2BotAuthSession,
+    newM2BotAccount,
+    getM2BotAccount,
+    updateStatusM2BotAuthSession,
+    updateStatusM2BotAuthSessionOtp,
 };

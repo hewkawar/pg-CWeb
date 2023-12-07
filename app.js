@@ -415,6 +415,58 @@ app.delete('/app/m2bot/voicechat', async (req, res) => {
     }
 });
 
+app.post('/app/m2bot/verify/link', async (req, res) => {
+    const { email, discordId } = req.body;
+    if (!email) return res.status(400).json({ status: 1, message: "Unknow email"});
+    if (!discordId) return res.status(400).json({ status: 2, message: "Unknow discordId"});
+
+    const otp = utilts.generateEmailOTP();
+    const refno1 = utilts.generateRandomString(6);
+    const session = utilts.generateRandomString(25);
+
+    utilts.sendEmail(email, `${otp} ยืนยันอีเมล - Discord สองทับแปดบวกเก้า`, `สวัสดี\nคุณได้ทำการยืนยันอีเมลล์ โดยรหัสยืนยันของคุณคือ ${otp}\nรหัสอ้งอิง : ${refno1}\nสองทับแปดบวกเก้า\nอีเมลนี้ถูกส่งด้วยระบบอัตโนมัติ กรุณาอย่าตอบกลับอีเมลนี้`,`สวัสดี<br>คุณได้ทำการยืนยันอีเมลล์ โดยรหัสยืนยันของคุณคือ <span style="color: #f1c40f;">${otp}</span><br>รหัสอ้งอิง : ${refno1}<br>สองทับแปดบวกเก้า<br>อีเมลนี้ถูกส่งด้วยระบบอัตโนมัติ กรุณาอย่าตอบกลับอีเมลนี้`)
+
+    await utilts.newM2BotAuthSession(m2bot_db, session, discordId);
+    await utilts.newM2BotAuthSessionOtp(m2bot_db, session, refno1, email, otp);
+
+    return res.status(201).json({ status: 0, message: "Ok", detail: { ref: refno1, session: session}});
+});
+
+app.post('/app/m2bot/verify/otp', async (req, res) => {
+    const { session, otp, ref } = req.body;
+
+    if (!session) return res.status(400).json({ status: 1, message: "Unknow Session"});
+    if (!otp) return res.status(400).json({ status: 2, message: "Unknow otp"});
+    if (!ref) return res.status(400).json({ status: 3, message: "Unknow ref"});
+
+    const ssexp = await utilts.verifyM2BotSession(m2bot_db, session);
+
+    if (ssexp) return res.status(400).json({ status: 4, message: "Session Expire"});
+
+    const sessionOtpData = await utilts.getM2BotAuthSessionOtp(m2bot_db, session, ref);
+    const sessionData = await utilts.getM2BotAuthSession(m2bot_db, session);
+
+    if (!sessionData || sessionData.status !== "preauth") return res.status(400).json({ status: 4, message: "Session Expire"});
+
+    if (sessionOtpData.otp === otp) {
+        let accountData = await utilts.getM2BotAccount(m2bot_db, sessionData.discord_id, sessionOtpData.email);
+        if (!accountData) {
+            await utilts.newM2BotAccount(m2bot_db, sessionData.discord_id, sessionOtpData.email);
+            accountData = await utilts.getM2BotAccount(m2bot_db, sessionData.discord_id, sessionOtpData.email);
+        }
+
+        await utilts.updateStatusM2BotAuthSession(m2bot_db, session, "authed");
+        await utilts.updateStatusM2BotAuthSessionOtp(m2bot_db, session, "verified");
+        
+        return res.status(200).json({ verify: "success" });
+    } else {
+        await utilts.updateStatusM2BotAuthSession(m2bot_db, session, "fail");
+        await utilts.updateStatusM2BotAuthSessionOtp(m2bot_db, session, "verify_fail");
+
+        return res.status(401).json({ verify: "fail" });
+    }
+});
+
 app.get('/app/bank/session', async (req, res) => {
     const { session_id } = req.query;
     const userAgent = req.get('User-Agent');
