@@ -579,9 +579,9 @@ async function newM2BotAuthSession(DB, SessionId, DiscordId) {
     });
 }
 
-async function newM2BotAuthSessionOtp(DB, Session, Ref, Email, Otp) {
+async function newM2BotAuthOtp(DB, discordId, Ref, Email, Otp) {
     return new Promise((resolve, reject) => {
-        DB.query("INSERT INTO `otp`(`session`, `ref`, `email`, `otp`) VALUES (?, ?, ?, ?)", [Session, Ref, Email, Otp], (err, results) => {
+        DB.query("INSERT INTO `otp`(`discord_id`, `ref`, `email`, `otp`) VALUES (?, ?, ?, ?)", [discordId, Ref, Email, Otp], (err, results) => {
             if (err) {
                 console.error('Error executing MySQL query:', err);
                 reject(err);
@@ -624,9 +624,9 @@ async function verifyM2BotSession(DB, SessionId) {
     });
 }
 
-async function getM2BotAuthSessionOtp(DB, Session, Ref) {
+async function getM2BotAuthSessionOtp(DB, discordId, Ref) {
     return new Promise((resolve, reject) => {
-        DB.query('SELECT * FROM `otp` WHERE `session` = ? AND `ref` = ?', [Session, Ref], (err, results) => {
+        DB.query('SELECT * FROM `otp` WHERE `discord_id` = ? AND `ref` = ?', [discordId, Ref], (err, results) => {
             if (err) {
                 console.error('Error executing MySQL query:', err);
                 reject(err);
@@ -729,9 +729,9 @@ async function updateStatusM2BotAuthSession(DB, SessionId, Status) {
     });
 }
 
-async function updateStatusM2BotAuthSessionOtp(DB, SessionId, Status) {
+async function updateStatusM2BotAuthSessionOtp(DB, discordId, Status) {
     return new Promise((resolve, reject) => {
-        DB.query("UPDATE `otp` SET `status`= ? WHERE `session` = ?", [Status, SessionId], (err, results) => {
+        DB.query("UPDATE `otp` SET `status`= ? WHERE `discord_id` = ?", [Status, discordId], (err, results) => {
             if (err) {
                 console.error('Error executing MySQL query:', err);
                 reject(err);
@@ -821,7 +821,7 @@ module.exports = {
     getM2BotAuthSession,
     generateEmailOTP,
     sendEmail,
-    newM2BotAuthSessionOtp,
+    newM2BotAuthOtp,
     verifyM2BotSession,
     getM2BotAuthSessionOtp,
     removeM2BotAuthSession,

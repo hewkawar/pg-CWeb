@@ -422,49 +422,131 @@ app.post('/app/m2bot/verify/link', async (req, res) => {
 
     const otp = utilts.generateEmailOTP();
     const refno1 = utilts.generateRandomString(6);
-    const session = utilts.generateRandomString(25);
 
     utilts.sendEmail(email, `${otp} ยืนยันอีเมล - Discord สองทับแปดบวกเก้า`, `สวัสดี\nคุณได้ทำการยืนยันอีเมลล์ โดยรหัสยืนยันของคุณคือ ${otp}\nรหัสอ้งอิง : ${refno1}\nสองทับแปดบวกเก้า\nอีเมลนี้ถูกส่งด้วยระบบอัตโนมัติ กรุณาอย่าตอบกลับอีเมลนี้`,`สวัสดี<br>คุณได้ทำการยืนยันอีเมลล์ โดยรหัสยืนยันของคุณคือ <span style="color: #f1c40f;">${otp}</span><br>รหัสอ้งอิง : ${refno1}<br>สองทับแปดบวกเก้า<br>อีเมลนี้ถูกส่งด้วยระบบอัตโนมัติ กรุณาอย่าตอบกลับอีเมลนี้`)
 
-    await utilts.newM2BotAuthSession(m2bot_db, session, discordId);
-    await utilts.newM2BotAuthSessionOtp(m2bot_db, session, refno1, email, otp);
+    await utilts.newM2BotAuthOtp(m2bot_db, discordId, refno1, email, otp);
 
-    return res.status(201).json({ status: 0, message: "Ok", detail: { ref: refno1, session: session}});
+    return res.status(201).json({ status: 0, message: "Ok", detail: { ref: refno1}});
 });
 
 app.post('/app/m2bot/verify/otp', async (req, res) => {
-    const { session, otp, ref } = req.body;
+    const { discordId, otp, ref } = req.body;
 
-    if (!session) return res.status(400).json({ status: 1, message: "Unknow Session"});
-    if (!otp) return res.status(400).json({ status: 2, message: "Unknow otp"});
-    if (!ref) return res.status(400).json({ status: 3, message: "Unknow ref"});
+    if (!discordId) return res.status(400).json({ status: 1, message: "Unknow discordId"});
+    if (!ref) return res.status(400).json({ status: 2, message: "Unknow ref"});
+    if (!otp) return res.status(400).json({ status: 3, message: "Unknow otp"});
 
-    const ssexp = await utilts.verifyM2BotSession(m2bot_db, session);
+    // const ssexp = await utilts.verifyM2BotSession(m2bot_db, session);
 
-    if (ssexp) return res.status(400).json({ status: 4, message: "Session Expire"});
+    // if (ssexp) return res.status(400).json({ status: 4, message: "Session Expire"});
 
-    const sessionOtpData = await utilts.getM2BotAuthSessionOtp(m2bot_db, session, ref);
-    const sessionData = await utilts.getM2BotAuthSession(m2bot_db, session);
+    const sessionOtpData = await utilts.getM2BotAuthSessionOtp(m2bot_db, discordId, ref);
+    // const sessionData = await utilts.getM2BotAuthSession(m2bot_db, session);
 
-    if (!sessionData || sessionData.status !== "preauth") return res.status(400).json({ status: 4, message: "Session Expire"});
+    if (!sessionOtpData || sessionOtpData.status !== "pendingverify") return res.status(400).json({ status: 4, message: "Otp Expire"});
 
     if (sessionOtpData.otp === otp) {
-        let accountData = await utilts.getM2BotAccount(m2bot_db, sessionData.discord_id, sessionOtpData.email);
+        let accountData = await utilts.getM2BotAccount(m2bot_db, sessionOtpData.discord_id, sessionOtpData.email);
         if (!accountData) {
-            await utilts.newM2BotAccount(m2bot_db, sessionData.discord_id, sessionOtpData.email);
-            accountData = await utilts.getM2BotAccount(m2bot_db, sessionData.discord_id, sessionOtpData.email);
+            await utilts.newM2BotAccount(m2bot_db, sessionOtpData.discord_id, sessionOtpData.email);
+            accountData = await utilts.getM2BotAccount(m2bot_db, sessionOtpData.discord_id, sessionOtpData.email);
         }
 
-        await utilts.updateStatusM2BotAuthSession(m2bot_db, session, "authed");
-        await utilts.updateStatusM2BotAuthSessionOtp(m2bot_db, session, "verified");
+        // await utilts.updateStatusM2BotAuthSession(m2bot_db, session, "authed");
+        await utilts.updateStatusM2BotAuthSessionOtp(m2bot_db, sessionOtpData.discord_id, "verified");
         
         return res.status(200).json({ verify: "success" });
     } else {
-        await utilts.updateStatusM2BotAuthSession(m2bot_db, session, "fail");
-        await utilts.updateStatusM2BotAuthSessionOtp(m2bot_db, session, "verify_fail");
+        // await utilts.updateStatusM2BotAuthSession(m2bot_db, session, "fail");
+        await utilts.updateStatusM2BotAuthSessionOtp(m2bot_db, sessionOtpData.discord_id, "verify_fail");
 
         return res.status(401).json({ verify: "fail" });
     }
+});
+
+app.get('/app/m2bot/verify/check', async (req, res) => {
+    const { id } = req.query;
+
+    if (!id) return res.status(400).json({ status: 1, message: "Unknow id"});
+
+    let accountData = await utilts.getM2BotAccount(m2bot_db, id);
+
+    if (!accountData) return res.status(200).json({ status: 2, access: false, message: "Account Not Found", account: { discordId: id, email: null}})
+
+    return res.status(200).json({ status: 0, access: true, message: "Member", account: { discordId: accountData.discord_id, email: accountData.email}})
+});
+
+app.get('/app/m2bot/member', async (req, res) => {
+    const response = {
+        M: {
+            1: {
+                1: [null],
+                2: [null],
+                3: [null],
+                4: [null],
+                5: [null],
+                6: [null],
+                7: [null],
+                8: [null],
+                9: [null],
+            },
+            2: {
+                1: [null],
+                2: [null],
+                3: [null],
+                4: [null],
+                5: [null],
+                6: [null],
+                7: [null],
+                8: [23479, 23480, 23481, 23482, 23484, 23486, 23488, 23489, 23490, 23494, 23496, 23497, 23498, 23500, 23501, 23502, 23503, 23505, 23506, 23511, 23516, 23520, 23527, 23528, 23530, 23532, 23536, 23537, 23538, 23539, 23540, 23541, 23542, 23543, 23544, 23545],
+                9: [23475, 23476, 23477, 23478, 23483, 23485, 23487, 23491, 23492, 23493, 23495, 23499, 23504, 23507, 23508, 23509, 23510, 23512, 23513, 23514, 23515, 23517, 23518, 23519, 23521, 23522, 23523, 23524, 23525, 23526, 23529, 23531, 23533, 23534, 23535, 23546],
+            },
+            3: {
+                1: [null],
+                2: [null],
+                3: [null],
+                4: [null],
+                5: [null],
+                6: [null],
+                7: [null],
+                8: [null],
+                9: [null],
+            },
+            4: {
+                1: [null],
+                2: [null],
+                3: [null],
+                4: [null],
+                5: [null],
+                6: [null],
+                7: [null],
+                8: [null],
+            },
+            5: {
+                1: [null],
+                2: [null],
+                3: [null],
+                4: [null],
+                5: [null],
+                6: [null],
+                7: [null],
+                8: [null],
+            },
+            6: {
+                1: [null],
+                2: [null],
+                3: [null],
+                4: [null],
+                5: [null],
+                6: [null],
+                7: [null],
+                8: [null],
+            },
+            
+        }
+    }
+    return res.status(200).json(response);
 });
 
 app.get('/app/bank/session', async (req, res) => {
