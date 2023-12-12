@@ -644,7 +644,7 @@ async function getM2BotAuthSessionOtp(DB, discordId, Ref) {
 async function getM2BotAccount(DB, DiscordId, Email) {
     if (DiscordId && Email) {
         return new Promise((resolve, reject) => {
-            DB.query('SELECT * FROM `account` WHERE `discord_id` = ? AND `email` = ?', [DiscordId, Email], (err, results) => {
+            DB.query('SELECT * FROM `account` WHERE `discord_id` = ? AND `email` = ? AND `status` = ?', [DiscordId, Email, 'verified'], (err, results) => {
                 if (err) {
                     console.error('Error executing MySQL query:', err);
                     reject(err);

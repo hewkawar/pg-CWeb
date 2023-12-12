@@ -1022,7 +1022,7 @@ app.post('/app/bank/convert/pua', async (req, res) => {
                 "messages": [
                     {
                         "type": "text",
-                        "text": `รายการแปลงสกุลเงิน\nแปลงเป็นสกุล Baht\n________________\nบัญชี : ${username}\nวันที่ : ${date}\nเวลา : ${time}\nจำนวนเงิน : ${amount}\n________________\nยอดเงินรวม : ${total} บาท\nเงินสด : ${cash} บาท\nเหรียญ Pua : ${pua_chip} Pua`
+                        "text": `รายการแปลงสกุลเงิน\nแปลงเป็นสกุล Pua\n________________\nบัญชี : ${username}\nวันที่ : ${date}\nเวลา : ${time}\nจำนวนเงิน : ${amount}\n________________\nยอดเงินรวม : ${total} บาท\nเงินสด : ${cash} บาท\nเหรียญ Pua : ${pua_chip} Pua`
                     }
                 ]
             }, {
@@ -1121,7 +1121,7 @@ app.post('/app/bank/convert/thb', async (req, res) => {
                 "messages": [
                     {
                         "type": "text",
-                        "text": `รายการแปลงสกุลเงิน\nแปลงเป็นสกุล Pua\n________________\nบัญชี : ${username}\nวันที่ : ${date}\nเวลา : ${time}\nจำนวนเงิน : ${amount}\n________________\nยอดเงินรวม : ${total} บาท\nเงินสด : ${cash} บาท\nเหรียญ Pua : ${pua_chip} Pua`
+                        "text": `รายการแปลงสกุลเงิน\nแปลงเป็นสกุล Baht\n________________\nบัญชี : ${username}\nวันที่ : ${date}\nเวลา : ${time}\nจำนวนเงิน : ${amount}\n________________\nยอดเงินรวม : ${total} บาท\nเงินสด : ${cash} บาท\nเหรียญ Pua : ${pua_chip} Pua`
                     }
                 ]
             }, {
