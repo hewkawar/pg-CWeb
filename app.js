@@ -420,14 +420,22 @@ app.post('/app/m2bot/verify/link', async (req, res) => {
     if (!email) return res.status(400).json({ status: 1, message: "Unknow email"});
     if (!discordId) return res.status(400).json({ status: 2, message: "Unknow discordId"});
 
-    const otp = utilts.generateEmailOTP();
-    const refno1 = utilts.generateRandomString(6);
+    let accountData = await utilts.getM2BotAccount(m2bot_db, discordId, email, "GetStatus");
 
-    utilts.sendEmail(email, `${otp} ยืนยันอีเมล - Discord สองทับแปดบวกเก้า`, `สวัสดี\nคุณได้ทำการยืนยันอีเมลล์ โดยรหัสยืนยันของคุณคือ ${otp}\nรหัสอ้งอิง : ${refno1}\nสองทับแปดบวกเก้า\nอีเมลนี้ถูกส่งด้วยระบบอัตโนมัติ กรุณาอย่าตอบกลับอีเมลนี้`,`สวัสดี<br>คุณได้ทำการยืนยันอีเมลล์ โดยรหัสยืนยันของคุณคือ <span style="color: #f1c40f;">${otp}</span><br>รหัสอ้งอิง : ${refno1}<br>สองทับแปดบวกเก้า<br>อีเมลนี้ถูกส่งด้วยระบบอัตโนมัติ กรุณาอย่าตอบกลับอีเมลนี้`)
+    if (accountData) {
+        utilts.updateM2BotAccountStatus(m2bot_db, discordId, email, 'active');
 
-    await utilts.newM2BotAuthOtp(m2bot_db, discordId, refno1, email, otp);
-
-    return res.status(201).json({ status: 0, message: "Ok", detail: { ref: refno1}});
+        return res.status(200).json({ status: 0, message: "Ok", detail: { ref: null, active: true}});
+    } else {
+        const otp = utilts.generateEmailOTP();
+        const refno1 = utilts.generateRandomString(6);
+    
+        utilts.sendEmail(email, `${otp} ยืนยันอีเมล - Discord สองทับแปดบวกเก้า`, `สวัสดี\nคุณได้ทำการยืนยันอีเมลล์ โดยรหัสยืนยันของคุณคือ ${otp}\nรหัสอ้งอิง : ${refno1}\nสองทับแปดบวกเก้า\nอีเมลนี้ถูกส่งด้วยระบบอัตโนมัติ กรุณาอย่าตอบกลับอีเมลนี้`,`สวัสดี<br>คุณได้ทำการยืนยันอีเมลล์ โดยรหัสยืนยันของคุณคือ <span style="color: #f1c40f;">${otp}</span><br>รหัสอ้งอิง : ${refno1}<br>สองทับแปดบวกเก้า<br>อีเมลนี้ถูกส่งด้วยระบบอัตโนมัติ กรุณาอย่าตอบกลับอีเมลนี้`)
+    
+        await utilts.newM2BotAuthOtp(m2bot_db, discordId, refno1, email, otp);
+    
+        return res.status(201).json({ status: 0, message: "Ok", detail: { ref: refno1, active: false}});
+    }
 });
 
 app.post('/app/m2bot/verify/otp', async (req, res) => {
@@ -437,28 +445,21 @@ app.post('/app/m2bot/verify/otp', async (req, res) => {
     if (!ref) return res.status(400).json({ status: 2, message: "Unknow ref"});
     if (!otp) return res.status(400).json({ status: 3, message: "Unknow otp"});
 
-    // const ssexp = await utilts.verifyM2BotSession(m2bot_db, session);
-
-    // if (ssexp) return res.status(400).json({ status: 4, message: "Session Expire"});
-
     const sessionOtpData = await utilts.getM2BotAuthSessionOtp(m2bot_db, discordId, ref);
-    // const sessionData = await utilts.getM2BotAuthSession(m2bot_db, session);
 
     if (!sessionOtpData || sessionOtpData.status !== "pendingverify") return res.status(400).json({ status: 4, message: "Otp Expire"});
 
     if (sessionOtpData.otp === otp) {
-        let accountData = await utilts.getM2BotAccount(m2bot_db, sessionOtpData.discord_id, sessionOtpData.email);
+        let accountData = await utilts.getM2BotAccount(m2bot_db, sessionOtpData.discord_id, sessionOtpData.email, "GetAccount");
         if (!accountData) {
             await utilts.newM2BotAccount(m2bot_db, sessionOtpData.discord_id, sessionOtpData.email);
-            accountData = await utilts.getM2BotAccount(m2bot_db, sessionOtpData.discord_id, sessionOtpData.email);
+            accountData = await utilts.getM2BotAccount(m2bot_db, sessionOtpData.discord_id, sessionOtpData.email, "GetAccount");
         }
 
-        // await utilts.updateStatusM2BotAuthSession(m2bot_db, session, "authed");
         await utilts.updateStatusM2BotAuthSessionOtp(m2bot_db, sessionOtpData.discord_id, "verified");
         
         return res.status(200).json({ verify: "success" });
     } else {
-        // await utilts.updateStatusM2BotAuthSession(m2bot_db, session, "fail");
         await utilts.updateStatusM2BotAuthSessionOtp(m2bot_db, sessionOtpData.discord_id, "verify_fail");
 
         return res.status(401).json({ verify: "fail" });
@@ -470,9 +471,11 @@ app.get('/app/m2bot/verify/check', async (req, res) => {
 
     if (!id) return res.status(400).json({ status: 1, message: "Unknow id"});
 
-    let accountData = await utilts.getM2BotAccount(m2bot_db, id);
+    let accountData = await utilts.getM2BotAccount(m2bot_db, id, null, "GetAccount");
 
     if (!accountData) return res.status(200).json({ status: 2, access: false, message: "Account Not Found", account: { discordId: id, email: null}})
+
+    console.log(accountData);
 
     return res.status(200).json({ status: 0, access: true, message: "Member", account: { discordId: accountData.discord_id, email: accountData.email}})
 });
@@ -547,6 +550,18 @@ app.get('/app/m2bot/member', async (req, res) => {
         }
     }
     return res.status(200).json(response);
+});
+
+app.put('/app/m2bot/account/inactive', async (req, res) => {
+    const { email, discordId } = req.body;
+
+    if (!email) return res.status(400).json({ status: 1, message: "Unknow email"});
+    if (!discordId) return res.status(400).json({ status: 2, message: "Unknow discordId"});
+
+    const updatestatus = await utilts.updateM2BotAccountStatus(m2bot_db, discordId, email, 'inactive');
+
+    if (!updatestatus) return res.status(500).json({ status: 3, message: "Someting Error"})
+    return res.status(200).json({ status: 0, message: "Ok" })
 });
 
 app.get('/app/bank/session', async (req, res) => {
@@ -811,8 +826,190 @@ app.post('/app/bank/deposit', async (req, res) => {
                 "to": lineaccount.uuid,
                 "messages": [
                     {
-                        "type": "text",
-                        "text": `รายการเงินเข้า\n________________\nบัญชี : ${username}\nวันที่ : ${date}\nเวลา : ${time}\nจำนวนเงิน : ${amount}\n________________\nยอดเงินรวม : ${total} บาท\nเงินสด : ${cash} บาท\nเหรียญ Pua : ${pua_chip} Pua`
+                        "type": "flex",
+                        "altText": `รายการเงินเข้าจากบัญชี ${username} วันที่ ${date} เวลา ${time} จำนวนเงิน ${amount} บาท ยอดเงินคงเหลือ ${total}`,
+                        "contents": {
+                            "type": "bubble",
+                            "header": {
+                                "type": "box",
+                                "layout": "horizontal",
+                                "contents": [
+                                    {
+                                        "type": "text",
+                                        "text": "💵",
+                                        "margin": "none",
+                                        "align": "center",
+                                        "flex": 1
+                                    },
+                                    {
+                                        "type": "text",
+                                        "text": "รายการเงินเข้า",
+                                        "size": "lg",
+                                        "weight": "bold",
+                                        "flex": 9
+                                    }
+                                ]
+                            },
+                            "body": {
+                                "type": "box",
+                                "layout": "vertical",
+                                "contents": [
+                                    {
+                                        "type": "box",
+                                        "layout": "horizontal",
+                                        "contents": [
+                                            {
+                                                "type": "text",
+                                                "text": "จากบัญชี",
+                                                "align": "start",
+                                                "flex": 4
+                                            },
+                                            {
+                                                "type": "text",
+                                                "text": `${username}`,
+                                                "align": "end",
+                                                "flex": 6
+                                            }
+                                        ],
+                                        "margin": "none"
+                                    },
+                                    {
+                                        "type": "box",
+                                        "layout": "horizontal",
+                                        "contents": [
+                                            {
+                                                "type": "text",
+                                                "text": "วันที่",
+                                                "align": "start",
+                                                "flex": 4
+                                            },
+                                            {
+                                                "type": "text",
+                                                "text": `${date}`,
+                                                "align": "end",
+                                                "flex": 6
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "box",
+                                        "layout": "horizontal",
+                                        "contents": [
+                                            {
+                                                "type": "text",
+                                                "text": "เวลา",
+                                                "align": "start",
+                                                "flex": 4
+                                            },
+                                            {
+                                                "type": "text",
+                                                "text": `${time}`,
+                                                "align": "end",
+                                                "flex": 6
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "box",
+                                        "layout": "horizontal",
+                                        "contents": [
+                                            {
+                                                "type": "text",
+                                                "text": "จำนวนเงิน",
+                                                "align": "start",
+                                                "flex": 4
+                                            },
+                                            {
+                                                "type": "text",
+                                                "text": `${amount} บาท`,
+                                                "align": "end",
+                                                "flex": 6
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            "footer": {
+                                "type": "box",
+                                "layout": "vertical",
+                                "contents": [
+                                    {
+                                        "type": "box",
+                                        "layout": "horizontal",
+                                        "contents": [
+                                            {
+                                                "type": "text",
+                                                "text": "ยอดเงินคงเหลือ",
+                                                "align": "start",
+                                                "weight": "bold",
+                                                "flex": 5
+                                            },
+                                            {
+                                                "type": "text",
+                                                "text": `${total}`,
+                                                "align": "end",
+                                                "weight": "bold",
+                                                "flex": 5
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "box",
+                                        "layout": "horizontal",
+                                        "contents": [
+                                            {
+                                                "type": "text",
+                                                "text": "THB",
+                                                "align": "start",
+                                                "flex": 2
+                                            },
+                                            {
+                                                "type": "text",
+                                                "text": `${cash}`,
+                                                "align": "end",
+                                                "flex": 8
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "box",
+                                        "layout": "horizontal",
+                                        "contents": [
+                                            {
+                                                "type": "text",
+                                                "text": "PUA",
+                                                "align": "start",
+                                                "flex": 2
+                                            },
+                                            {
+                                                "type": "text",
+                                                "text": `${pua_chip}`,
+                                                "align": "end",
+                                                "flex": 8
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "button",
+                                        "action": {
+                                            "type": "uri",
+                                            "label": "BankH",
+                                            "uri": "https://bank.hewkawar.xyz/"
+                                        },
+                                        "style": "primary",
+                                        "margin": "lg"
+                                    }
+                                ]
+                            },
+                            "styles": {
+                                "body": {
+                                    "separator": true
+                                },
+                                "footer": {
+                                    "separator": true
+                                }
+                            }
+                        }
                     }
                 ]
             }, {
@@ -922,8 +1119,190 @@ app.post('/app/bank/withdraw', async (req, res) => {
                 "to": lineaccount.uuid,
                 "messages": [
                     {
-                        "type": "text",
-                        "text": `รายการเงินออก\n________________\nบัญชี : ${username}\nวันที่ : ${date}\nเวลา : ${time}\nจำนวนเงิน : ${amount}\n________________\nยอดเงินรวม : ${total} บาท\nเงินสด : ${cash} บาท\nเหรียญ Pua : ${pua_chip} Pua`
+                        "type": "flex",
+                        "altText": `รายการเงินออกจากบัญชี ${username} วันที่ ${date} เวลา ${time} จำนวนเงิน ${amount} บาท ยอดเงินคงเหลือ ${total}`,
+                        "contents": {
+                            "type": "bubble",
+                            "header": {
+                                "type": "box",
+                                "layout": "horizontal",
+                                "contents": [
+                                    {
+                                        "type": "text",
+                                        "text": "💵",
+                                        "margin": "none",
+                                        "align": "center",
+                                        "flex": 1
+                                    },
+                                    {
+                                        "type": "text",
+                                        "text": "รายการเงินออก",
+                                        "size": "lg",
+                                        "weight": "bold",
+                                        "flex": 9
+                                    }
+                                ]
+                            },
+                            "body": {
+                                "type": "box",
+                                "layout": "vertical",
+                                "contents": [
+                                    {
+                                        "type": "box",
+                                        "layout": "horizontal",
+                                        "contents": [
+                                            {
+                                                "type": "text",
+                                                "text": "จากบัญชี",
+                                                "align": "start",
+                                                "flex": 4
+                                            },
+                                            {
+                                                "type": "text",
+                                                "text": `${username}`,
+                                                "align": "end",
+                                                "flex": 6
+                                            }
+                                        ],
+                                        "margin": "none"
+                                    },
+                                    {
+                                        "type": "box",
+                                        "layout": "horizontal",
+                                        "contents": [
+                                            {
+                                                "type": "text",
+                                                "text": "วันที่",
+                                                "align": "start",
+                                                "flex": 4
+                                            },
+                                            {
+                                                "type": "text",
+                                                "text": `${date}`,
+                                                "align": "end",
+                                                "flex": 6
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "box",
+                                        "layout": "horizontal",
+                                        "contents": [
+                                            {
+                                                "type": "text",
+                                                "text": "เวลา",
+                                                "align": "start",
+                                                "flex": 4
+                                            },
+                                            {
+                                                "type": "text",
+                                                "text": `${time}`,
+                                                "align": "end",
+                                                "flex": 6
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "box",
+                                        "layout": "horizontal",
+                                        "contents": [
+                                            {
+                                                "type": "text",
+                                                "text": "จำนวนเงิน",
+                                                "align": "start",
+                                                "flex": 4
+                                            },
+                                            {
+                                                "type": "text",
+                                                "text": `${amount} บาท`,
+                                                "align": "end",
+                                                "flex": 6
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            "footer": {
+                                "type": "box",
+                                "layout": "vertical",
+                                "contents": [
+                                    {
+                                        "type": "box",
+                                        "layout": "horizontal",
+                                        "contents": [
+                                            {
+                                                "type": "text",
+                                                "text": "ยอดเงินคงเหลือ",
+                                                "align": "start",
+                                                "weight": "bold",
+                                                "flex": 5
+                                            },
+                                            {
+                                                "type": "text",
+                                                "text": `${total}`,
+                                                "align": "end",
+                                                "weight": "bold",
+                                                "flex": 5
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "box",
+                                        "layout": "horizontal",
+                                        "contents": [
+                                            {
+                                                "type": "text",
+                                                "text": "THB",
+                                                "align": "start",
+                                                "flex": 2
+                                            },
+                                            {
+                                                "type": "text",
+                                                "text": `${cash}`,
+                                                "align": "end",
+                                                "flex": 8
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "box",
+                                        "layout": "horizontal",
+                                        "contents": [
+                                            {
+                                                "type": "text",
+                                                "text": "PUA",
+                                                "align": "start",
+                                                "flex": 2
+                                            },
+                                            {
+                                                "type": "text",
+                                                "text": `${pua_chip}`,
+                                                "align": "end",
+                                                "flex": 8
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "button",
+                                        "action": {
+                                            "type": "uri",
+                                            "label": "BankH",
+                                            "uri": "https://bank.hewkawar.xyz/"
+                                        },
+                                        "style": "primary",
+                                        "margin": "lg"
+                                    }
+                                ]
+                            },
+                            "styles": {
+                                "body": {
+                                    "separator": true
+                                },
+                                "footer": {
+                                    "separator": true
+                                }
+                            }
+                        }
                     }
                 ]
             }, {
@@ -1021,8 +1400,190 @@ app.post('/app/bank/convert/pua', async (req, res) => {
                 "to": lineaccount.uuid,
                 "messages": [
                     {
-                        "type": "text",
-                        "text": `รายการแปลงสกุลเงิน\nแปลงเป็นสกุล Pua\n________________\nบัญชี : ${username}\nวันที่ : ${date}\nเวลา : ${time}\nจำนวนเงิน : ${amount}\n________________\nยอดเงินรวม : ${total} บาท\nเงินสด : ${cash} บาท\nเหรียญ Pua : ${pua_chip} Pua`
+                        "type": "flex",
+                        "altText": `รายการแปลงสกุลเงินจากบัญชี ${username} วันที่ ${date} เวลา ${time} จำนวนเงิน ${amount} บาท ยอดเงินคงเหลือ ${total}`,
+                        "contents": {
+                            "type": "bubble",
+                            "header": {
+                                "type": "box",
+                                "layout": "horizontal",
+                                "contents": [
+                                    {
+                                        "type": "text",
+                                        "text": "💷",
+                                        "margin": "none",
+                                        "align": "center",
+                                        "flex": 1
+                                    },
+                                    {
+                                        "type": "text",
+                                        "text": "รายการแปลงสกุลเงิน",
+                                        "size": "lg",
+                                        "weight": "bold",
+                                        "flex": 9
+                                    }
+                                ]
+                            },
+                            "body": {
+                                "type": "box",
+                                "layout": "vertical",
+                                "contents": [
+                                    {
+                                        "type": "box",
+                                        "layout": "horizontal",
+                                        "contents": [
+                                            {
+                                                "type": "text",
+                                                "text": "จากบัญชี",
+                                                "align": "start",
+                                                "flex": 4
+                                            },
+                                            {
+                                                "type": "text",
+                                                "text": `${username}`,
+                                                "align": "end",
+                                                "flex": 6
+                                            }
+                                        ],
+                                        "margin": "none"
+                                    },
+                                    {
+                                        "type": "box",
+                                        "layout": "horizontal",
+                                        "contents": [
+                                            {
+                                                "type": "text",
+                                                "text": "วันที่",
+                                                "align": "start",
+                                                "flex": 4
+                                            },
+                                            {
+                                                "type": "text",
+                                                "text": `${date}`,
+                                                "align": "end",
+                                                "flex": 6
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "box",
+                                        "layout": "horizontal",
+                                        "contents": [
+                                            {
+                                                "type": "text",
+                                                "text": "เวลา",
+                                                "align": "start",
+                                                "flex": 4
+                                            },
+                                            {
+                                                "type": "text",
+                                                "text": `${time}`,
+                                                "align": "end",
+                                                "flex": 6
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "box",
+                                        "layout": "horizontal",
+                                        "contents": [
+                                            {
+                                                "type": "text",
+                                                "text": "จำนวนเงิน",
+                                                "align": "start",
+                                                "flex": 4
+                                            },
+                                            {
+                                                "type": "text",
+                                                "text": `${amount} บาท`,
+                                                "align": "end",
+                                                "flex": 6
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            "footer": {
+                                "type": "box",
+                                "layout": "vertical",
+                                "contents": [
+                                    {
+                                        "type": "box",
+                                        "layout": "horizontal",
+                                        "contents": [
+                                            {
+                                                "type": "text",
+                                                "text": "ยอดเงินคงเหลือ",
+                                                "align": "start",
+                                                "weight": "bold",
+                                                "flex": 5
+                                            },
+                                            {
+                                                "type": "text",
+                                                "text": `${total}`,
+                                                "align": "end",
+                                                "weight": "bold",
+                                                "flex": 5
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "box",
+                                        "layout": "horizontal",
+                                        "contents": [
+                                            {
+                                                "type": "text",
+                                                "text": "THB",
+                                                "align": "start",
+                                                "flex": 2
+                                            },
+                                            {
+                                                "type": "text",
+                                                "text": `${cash}`,
+                                                "align": "end",
+                                                "flex": 8
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "box",
+                                        "layout": "horizontal",
+                                        "contents": [
+                                            {
+                                                "type": "text",
+                                                "text": "PUA",
+                                                "align": "start",
+                                                "flex": 2
+                                            },
+                                            {
+                                                "type": "text",
+                                                "text": `${pua_chip}`,
+                                                "align": "end",
+                                                "flex": 8
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "button",
+                                        "action": {
+                                            "type": "uri",
+                                            "label": "BankH",
+                                            "uri": "https://bank.hewkawar.xyz/"
+                                        },
+                                        "style": "primary",
+                                        "margin": "lg"
+                                    }
+                                ]
+                            },
+                            "styles": {
+                                "body": {
+                                    "separator": true
+                                },
+                                "footer": {
+                                    "separator": true
+                                }
+                            }
+                        }
                     }
                 ]
             }, {
@@ -1120,8 +1681,190 @@ app.post('/app/bank/convert/thb', async (req, res) => {
                 "to": lineaccount.uuid,
                 "messages": [
                     {
-                        "type": "text",
-                        "text": `รายการแปลงสกุลเงิน\nแปลงเป็นสกุล Baht\n________________\nบัญชี : ${username}\nวันที่ : ${date}\nเวลา : ${time}\nจำนวนเงิน : ${amount}\n________________\nยอดเงินรวม : ${total} บาท\nเงินสด : ${cash} บาท\nเหรียญ Pua : ${pua_chip} Pua`
+                        "type": "flex",
+                        "altText": `รายการแปลงสกุลเงินจากบัญชี ${username} วันที่ ${date} เวลา ${time} จำนวนเงิน ${amount} บาท ยอดเงินคงเหลือ ${total}`,
+                        "contents": {
+                            "type": "bubble",
+                            "header": {
+                                "type": "box",
+                                "layout": "horizontal",
+                                "contents": [
+                                    {
+                                        "type": "text",
+                                        "text": "💷",
+                                        "margin": "none",
+                                        "align": "center",
+                                        "flex": 1
+                                    },
+                                    {
+                                        "type": "text",
+                                        "text": "รายการแปลงสกุลเงิน",
+                                        "size": "lg",
+                                        "weight": "bold",
+                                        "flex": 9
+                                    }
+                                ]
+                            },
+                            "body": {
+                                "type": "box",
+                                "layout": "vertical",
+                                "contents": [
+                                    {
+                                        "type": "box",
+                                        "layout": "horizontal",
+                                        "contents": [
+                                            {
+                                                "type": "text",
+                                                "text": "จากบัญชี",
+                                                "align": "start",
+                                                "flex": 4
+                                            },
+                                            {
+                                                "type": "text",
+                                                "text": `${username}`,
+                                                "align": "end",
+                                                "flex": 6
+                                            }
+                                        ],
+                                        "margin": "none"
+                                    },
+                                    {
+                                        "type": "box",
+                                        "layout": "horizontal",
+                                        "contents": [
+                                            {
+                                                "type": "text",
+                                                "text": "วันที่",
+                                                "align": "start",
+                                                "flex": 4
+                                            },
+                                            {
+                                                "type": "text",
+                                                "text": `${date}`,
+                                                "align": "end",
+                                                "flex": 6
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "box",
+                                        "layout": "horizontal",
+                                        "contents": [
+                                            {
+                                                "type": "text",
+                                                "text": "เวลา",
+                                                "align": "start",
+                                                "flex": 4
+                                            },
+                                            {
+                                                "type": "text",
+                                                "text": `${time}`,
+                                                "align": "end",
+                                                "flex": 6
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "box",
+                                        "layout": "horizontal",
+                                        "contents": [
+                                            {
+                                                "type": "text",
+                                                "text": "จำนวนเงิน",
+                                                "align": "start",
+                                                "flex": 4
+                                            },
+                                            {
+                                                "type": "text",
+                                                "text": `${amount} บาท`,
+                                                "align": "end",
+                                                "flex": 6
+                                            }
+                                        ]
+                                    }
+                                ]
+                            },
+                            "footer": {
+                                "type": "box",
+                                "layout": "vertical",
+                                "contents": [
+                                    {
+                                        "type": "box",
+                                        "layout": "horizontal",
+                                        "contents": [
+                                            {
+                                                "type": "text",
+                                                "text": "ยอดเงินคงเหลือ",
+                                                "align": "start",
+                                                "weight": "bold",
+                                                "flex": 5
+                                            },
+                                            {
+                                                "type": "text",
+                                                "text": `${total}`,
+                                                "align": "end",
+                                                "weight": "bold",
+                                                "flex": 5
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "box",
+                                        "layout": "horizontal",
+                                        "contents": [
+                                            {
+                                                "type": "text",
+                                                "text": "THB",
+                                                "align": "start",
+                                                "flex": 2
+                                            },
+                                            {
+                                                "type": "text",
+                                                "text": `${cash}`,
+                                                "align": "end",
+                                                "flex": 8
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "box",
+                                        "layout": "horizontal",
+                                        "contents": [
+                                            {
+                                                "type": "text",
+                                                "text": "PUA",
+                                                "align": "start",
+                                                "flex": 2
+                                            },
+                                            {
+                                                "type": "text",
+                                                "text": `${pua_chip}`,
+                                                "align": "end",
+                                                "flex": 8
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "type": "button",
+                                        "action": {
+                                            "type": "uri",
+                                            "label": "BankH",
+                                            "uri": "https://bank.hewkawar.xyz/"
+                                        },
+                                        "style": "primary",
+                                        "margin": "lg"
+                                    }
+                                ]
+                            },
+                            "styles": {
+                                "body": {
+                                    "separator": true
+                                },
+                                "footer": {
+                                    "separator": true
+                                }
+                            }
+                        }
                     }
                 ]
             }, {
@@ -1250,16 +1993,16 @@ app.post('/app/bank/line/webhook', async (req, res) => {
         req.body.events.forEach(event => {
             if (event.type === "message") {
                 if (event.message.type === "text") {
-                    if (event.message.text === "/link") {
+                    if (event.message.text === "connect") {
                         axios.post('https://api.line.me/v2/bot/message/reply', {
                             "replyToken": event.replyToken,
                             "messages": [
                                 {
                                     "type": "template",
-                                    "altText": "เข้าสู่ระบบด้วย HewkawAr Gateway",
+                                    "altText": "เข้าสู่ระบบด้วย BankH",
                                     "template": {
                                         "type": "buttons",
-                                        "title": "เข้าสู่ระบบด้วย HewkawAr Gateway",
+                                        "title": "เข้าสู่ระบบด้วย BankH",
                                         "text": "คลิกที่ เข้าสู่ระบบ",
                                         "actions": [
                                             {
@@ -1332,18 +2075,4 @@ app.post('/donate/truemoney/voucher', async (req, res) => {
 const PORT = 3000;
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
-
-    // axios.post(webhook_url, {
-    //     embeds: [
-    //         {
-    //             title: 'HewkawAr API is Up',
-    //             description: `Target : **[api.hewkawar.xyz](https://api.hewkawar.xyz)**\nHewkawAr Database : ${hewkawar_db_c}\nHStudio Database : ${hstudio_db_c}\nHewkawAr Database : ${m2bot_db_c}`,
-    //             color: discord.Colors.Green,
-    //             timestamp: new Date().toISOString(),
-    //             thumbnail: { url: 'https://www.hewkawar.xyz/assets/uploads/up-arrow.png' },
-    //         },
-    //     ],
-    //     avatar_url: "https://www.hewkawar.xyz/assets/favicon.png",
-    //     username: "StatusTools"
-    // });
 });

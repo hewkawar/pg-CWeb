@@ -162,7 +162,7 @@ async function newAccountOAuth(DB, token, access_token) {
             console.log(res);
         })
         .catch((error) => {
-            console.log(error);
+            console.error(error);
         });
 
     return new Promise((resolve, reject) => {
@@ -613,7 +613,7 @@ async function verifyM2BotSession(DB, SessionId) {
     await DB.query('SELECT * FROM `session` WHERE `session_id` = ?;', [SessionId], (err, results) => {
         if (err) {
             console.error('Error executing MySQL query:', err);
-            console.log(err);
+            console.error(err);
         } else {
             if (results.length === 0) {
                 return false;
@@ -641,53 +641,115 @@ async function getM2BotAuthSessionOtp(DB, discordId, Ref) {
     });
 }
 
-async function getM2BotAccount(DB, DiscordId, Email) {
-    if (DiscordId && Email) {
-        return new Promise((resolve, reject) => {
-            DB.query('SELECT * FROM `account` WHERE `discord_id` = ? AND `email` = ? AND `status` = ?', [DiscordId, Email, 'verified'], (err, results) => {
-                if (err) {
-                    console.error('Error executing MySQL query:', err);
-                    reject(err);
-                } else {
-                    if (results.length === 0) {
-                        resolve(null);
+async function getM2BotAccount(DB, DiscordId, Email, Type) {
+    if (Type === "GetStatus") {
+        if (DiscordId && Email) {
+            return new Promise((resolve, reject) => {
+                DB.query('SELECT * FROM `account` WHERE `discord_id` = ? AND `email` = ?', [DiscordId, Email], (err, results) => {
+                    if (err) {
+                        console.error('Error executing MySQL query:', err);
+                        reject(err);
                     } else {
-                        resolve(results[0]);
+                        if (results.length === 0) {
+                            resolve(null);
+                        } else {
+                            resolve(results[0]);
+                        }
                     }
-                }
+                });
             });
-        });
-    } else if (DiscordId) {
-        return new Promise((resolve, reject) => {
-            DB.query('SELECT * FROM `account` WHERE `discord_id` = ?', [DiscordId], (err, results) => {
-                if (err) {
-                    console.error('Error executing MySQL query:', err);
-                    reject(err);
-                } else {
-                    if (results.length === 0) {
-                        resolve(null);
+        } else if (DiscordId) {
+            return new Promise((resolve, reject) => {
+                DB.query('SELECT * FROM `account` WHERE `discord_id` = ?', [DiscordId], (err, results) => {
+                    if (err) {
+                        console.error('Error executing MySQL query:', err);
+                        reject(err);
                     } else {
-                        resolve(results[0]);
+                        if (results.length === 0) {
+                            resolve(null);
+                        } else {
+                            resolve(results[0]);
+                        }
                     }
-                }
+                });
             });
-        });
-    } else if (Email) {
-        return new Promise((resolve, reject) => {
-            DB.query('SELECT * FROM `account` WHERE `email` = ?', [Email], (err, results) => {
-                if (err) {
-                    console.error('Error executing MySQL query:', err);
-                    reject(err);
-                } else {
-                    if (results.length === 0) {
-                        resolve(null);
+        } else if (Email) {
+            return new Promise((resolve, reject) => {
+                DB.query('SELECT * FROM `account` WHERE `email` = ?', [Email], (err, results) => {
+                    if (err) {
+                        console.error('Error executing MySQL query:', err);
+                        reject(err);
                     } else {
-                        resolve(results[0]);
+                        if (results.length === 0) {
+                            resolve(null);
+                        } else {
+                            resolve(results[0]);
+                        }
                     }
-                }
+                });
             });
-        });
+        }
+    } else if (Type === 'GetAccount') {
+        if (DiscordId && Email) {
+            return new Promise((resolve, reject) => {
+                DB.query('SELECT * FROM `account` WHERE `discord_id` = ? AND `email` = ? AND (`status` = \'verified\' OR `status` = \'active\')', [DiscordId, Email], (err, results) => {
+                    if (err) {
+                        console.error('Error executing MySQL query:', err);
+                        reject(err);
+                    } else {
+                        if (results.length === 0) {
+                            resolve(null);
+                        } else {
+                            resolve(results[0]);
+                        }
+                    }
+                });
+            });
+        } else if (DiscordId) {
+            return new Promise((resolve, reject) => {
+                DB.query('SELECT * FROM `account` WHERE `discord_id` = ? AND (`status` = \'verified\' OR `status` = \'active\')', [DiscordId], (err, results) => {
+                    if (err) {
+                        console.error('Error executing MySQL query:', err);
+                        reject(err);
+                    } else {
+                        if (results.length === 0) {
+                            resolve(null);
+                        } else {
+                            resolve(results[0]);
+                        }
+                    }
+                });
+            });
+        } else if (Email) {
+            return new Promise((resolve, reject) => {
+                DB.query('SELECT * FROM `account` WHERE `email` = ? AND (`status` = \'verified\' OR `status` = \'active\')', [Email], (err, results) => {
+                    if (err) {
+                        console.error('Error executing MySQL query:', err);
+                        reject(err);
+                    } else {
+                        if (results.length === 0) {
+                            resolve(null);
+                        } else {
+                            resolve(results[0]);
+                        }
+                    }
+                });
+            });
+        }
     }
+}
+
+async function updateM2BotAccountStatus(DB, DiscordId, Email, Status) {
+    return new Promise((resolve, reject) => {
+        DB.query("UPDATE `account` SET `status`= ? WHERE `discord_id`= ? AND `email` = ?", [Status, DiscordId, Email], (err, results) => {
+            if (err) {
+                console.error('Error executing MySQL query:', err);
+                reject(err);
+            } else {
+                resolve(results);
+            }
+        })
+    });
 }
 
 async function newM2BotAccount(DB, DiscordId, Email) {
@@ -829,4 +891,5 @@ module.exports = {
     getM2BotAccount,
     updateStatusM2BotAuthSession,
     updateStatusM2BotAuthSessionOtp,
+    updateM2BotAccountStatus,
 };
