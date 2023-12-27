@@ -1987,6 +1987,15 @@ app.post('/app/bank/connect', async (req, res) => {
     }
 });
 
+app.post('/app/playground/cweb/send-message', async (req, res) => {
+    await axios.post("http://localhost:2414/send-message", req.body).then(response => {
+        return res.json(response.data);
+    }).catch(error => {
+        console.log(error);
+        return res.json(error.data);
+    });
+});
+
 app.post('/app/bank/line/webhook', async (req, res) => {
     const access_token = "1hGj85AaJO3gjfLa5mCUpqwEuxE0SXGR5T1a1AUBMdkAVDHzRCuVQlgJbabDFsH2O9x66c8WpP9eqCrqBNXQU4FjEeP5cJ6R7gLVgZPJeR0j3bo7xhdSdvJDsHv1Rl9fj0uMhKRTR4GH6855vxjBhwdB04t89/1O/w1cDnyilFU=";
     if (req.body.events) {
