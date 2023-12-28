@@ -12,7 +12,7 @@ function generateRandomString(length) {
     }
 
     return randomString;
-}
+};
 
 const isURL = (str) => {
     const urlPattern = /^(https?|ftp):\/\/[^\s/$.?#].[^\s]*$/i;
@@ -31,7 +31,7 @@ function getCpuLoad() {
 
     const avgUsage = totalUsage / numCores;
     return avgUsage.toFixed(2);
-}
+};
 
 async function getAuth(DB, id) {
     return new Promise((resolve, reject) => {
@@ -48,7 +48,7 @@ async function getAuth(DB, id) {
             }
         });
     });
-}
+};
 
 async function getProfile(DB, id) {
     return new Promise((resolve, reject) => {
@@ -65,7 +65,7 @@ async function getProfile(DB, id) {
             }
         });
     });
-}
+};
 
 async function getHstudioConfig(DB, id) {
     return new Promise((resolve, reject) => {
@@ -79,10 +79,10 @@ async function getHstudioConfig(DB, id) {
                 } else {
                     resolve(results[0]);
                 }
-            }
+            };
         });
     });
-}
+};
 
 async function newHstudioConfig(DB, id) {
     return new Promise((resolve, reject) => {
@@ -93,9 +93,9 @@ async function newHstudioConfig(DB, id) {
             } else {
                 resolve(results);
             }
-        })
+        });
     });
-}
+};
 
 async function updateHstudioConfig(DB, id, loop, speed, volume) {
     if (loop) {
@@ -109,7 +109,7 @@ async function updateHstudioConfig(DB, id, loop, speed, volume) {
                 }
             })
         });
-    }
+    };
 
     if (speed) {
         let updateSpeed = new Promise((resolve, reject) => {
@@ -122,7 +122,7 @@ async function updateHstudioConfig(DB, id, loop, speed, volume) {
                 }
             })
         });
-    }
+    };
 
     if (volume) {
         let updateVolume = new Promise((resolve, reject) => {
@@ -135,8 +135,8 @@ async function updateHstudioConfig(DB, id, loop, speed, volume) {
                 }
             })
         });
-    }
-}
+    };
+};
 
 
 async function newRawOAuth(DB) {
@@ -154,7 +154,7 @@ async function newRawOAuth(DB) {
     });
 
     return { token: token };
-}
+};
 
 async function newAccountOAuth(DB, token, access_token) {
     await axios.get(`https://oauth2.googleapis.com/tokeninfo?access_token=${access_token}`)
@@ -175,7 +175,7 @@ async function newAccountOAuth(DB, token, access_token) {
             }
         })
     });
-}
+};
 
 async function newM2BotVoiceChannel(DB, ChannelID, ChannelType, ChannelName, MemberID, MemberUsername) {
     return new Promise((resolve, reject) => {
@@ -188,7 +188,7 @@ async function newM2BotVoiceChannel(DB, ChannelID, ChannelType, ChannelName, Mem
             }
         })
     });
-}
+};
 
 async function deleteM2BotVoiceChannel(DB, ChannelID) {
     return new Promise((resolve, reject) => {
@@ -201,7 +201,7 @@ async function deleteM2BotVoiceChannel(DB, ChannelID) {
             }
         })
     });
-}
+};
 
 async function getM2BotVoiceChannel(DB, ChannelID) {
     if (ChannelID) {
@@ -235,7 +235,7 @@ async function getM2BotVoiceChannel(DB, ChannelID) {
             });
         });
     }
-}
+};
 
 async function newBankSession(DB, SessionId, Username, DisplayName, ProfileUrl, UserAgent) {
     return new Promise((resolve, reject) => {
@@ -248,7 +248,7 @@ async function newBankSession(DB, SessionId, Username, DisplayName, ProfileUrl, 
             }
         })
     });
-}
+};
 
 async function getBankSession(DB, SessionId) {
     return new Promise((resolve, reject) => {
@@ -265,7 +265,7 @@ async function getBankSession(DB, SessionId) {
             }
         });
     });
-}
+};
 
 async function clearBankSession(DB, SessionId) {
     return new Promise((resolve, reject) => {
@@ -278,7 +278,7 @@ async function clearBankSession(DB, SessionId) {
             }
         })
     });
-}
+};
 
 async function getBankAccount(DB, username) {
     return new Promise((resolve, reject) => {
@@ -295,7 +295,7 @@ async function getBankAccount(DB, username) {
             }
         });
     });
-}
+};
 
 async function newBankAccount(DB, username) {
     return new Promise((resolve, reject) => {
@@ -308,7 +308,7 @@ async function newBankAccount(DB, username) {
             }
         })
     });
-}
+};
 
 async function updateBankAccount(DB, username, type, balance) {
     if (type === 'balance') {
@@ -334,7 +334,7 @@ async function updateBankAccount(DB, username, type, balance) {
             })
         });
     }
-}
+};
 
 async function newBankTransition(DB, username, type, amount) {
     return new Promise((resolve, reject) => {
@@ -347,7 +347,7 @@ async function newBankTransition(DB, username, type, amount) {
             }
         })
     });
-}
+};
 
 async function getBankDeposit(DB, username, month, year) {
     return new Promise((resolve, reject) => {
@@ -364,7 +364,7 @@ async function getBankDeposit(DB, username, month, year) {
             }
         });
     });
-}
+};
 
 async function getBankWithdraw(DB, username, month, year) {
     return new Promise((resolve, reject) => {
@@ -381,7 +381,7 @@ async function getBankWithdraw(DB, username, month, year) {
             }
         });
     });
-}
+};
 
 async function getBankConvertToPUA(DB, username, month, year) {
     return new Promise((resolve, reject) => {
@@ -398,7 +398,7 @@ async function getBankConvertToPUA(DB, username, month, year) {
             }
         });
     });
-}
+};
 
 async function getBankConvertToTHB(DB, username, month, year) {
     return new Promise((resolve, reject) => {
@@ -415,7 +415,7 @@ async function getBankConvertToTHB(DB, username, month, year) {
             }
         });
     });
-}
+};
 
 async function getBankTransition(DB, username, month, year) {
 
@@ -446,11 +446,11 @@ async function getBankTransition(DB, username, month, year) {
             convert_to_thbs: convert_to_thb
         }
     };
-}
+};
 
 function isInt(variable) {
     return typeof variable === 'number' && Number.isInteger(variable);
-}
+};
 
 async function getBankConnectAccountLine(DB, username) {
     return new Promise((resolve, reject) => {
@@ -467,7 +467,7 @@ async function getBankConnectAccountLine(DB, username) {
             }
         });
     });
-}
+};
 
 async function newBankConnectAccountLine(DB, username) {
     return new Promise((resolve, reject) => {
@@ -480,7 +480,7 @@ async function newBankConnectAccountLine(DB, username) {
             }
         })
     });
-}
+};
 
 async function updateBankConnectAccountLine(DB, username, uuid) {
     new Promise((resolve, reject) => {
@@ -493,7 +493,7 @@ async function updateBankConnectAccountLine(DB, username, uuid) {
             }
         })
     });
-}
+};
 
 function getCurrentTime() {
     const now = new Date();
@@ -508,7 +508,7 @@ function getCurrentTime() {
     const currentTime = `${hours}:${minutes}`;
 
     return currentTime;
-}
+};
 
 function getFormattedDate() {
     const monthsInThai = [
@@ -523,7 +523,7 @@ function getFormattedDate() {
 
     const formattedDate = `${day} ${month} ${year}`;
     return formattedDate;
-}
+};
 
 async function redeemVouchers(phone_number, voucher_code) {
     voucher_code = voucher_code.replace('https://gift.truemoney.com/campaign/?v=', '');
@@ -564,7 +564,7 @@ async function redeemVouchers(phone_number, voucher_code) {
             reason: 'An error occurred while redeeming the voucher.',
         };
     }
-}
+};
 
 async function newM2BotAuthSession(DB, SessionId, DiscordId) {
     return new Promise((resolve, reject) => {
@@ -577,7 +577,7 @@ async function newM2BotAuthSession(DB, SessionId, DiscordId) {
             }
         })
     });
-}
+};
 
 async function newM2BotAuthOtp(DB, discordId, Ref, Email, Otp) {
     return new Promise((resolve, reject) => {
@@ -590,7 +590,7 @@ async function newM2BotAuthOtp(DB, discordId, Ref, Email, Otp) {
             }
         })
     });
-}
+};
 
 async function getM2BotAuthSession(DB, SessionId) {
     return new Promise((resolve, reject) => {
@@ -607,7 +607,7 @@ async function getM2BotAuthSession(DB, SessionId) {
             }
         });
     });
-}
+};
 
 async function verifyM2BotSession(DB, SessionId) {
     await DB.query('SELECT * FROM `session` WHERE `session_id` = ?;', [SessionId], (err, results) => {
@@ -622,7 +622,7 @@ async function verifyM2BotSession(DB, SessionId) {
             }
         }
     });
-}
+};
 
 async function getM2BotAuthSessionOtp(DB, discordId, Ref) {
     return new Promise((resolve, reject) => {
@@ -639,7 +639,7 @@ async function getM2BotAuthSessionOtp(DB, discordId, Ref) {
             }
         });
     });
-}
+};
 
 async function getM2BotAccount(DB, DiscordId, Email, Type) {
     if (Type === "GetStatus") {
@@ -737,7 +737,7 @@ async function getM2BotAccount(DB, DiscordId, Email, Type) {
             });
         }
     }
-}
+};
 
 async function updateM2BotAccountStatus(DB, DiscordId, Email, Status) {
     return new Promise((resolve, reject) => {
@@ -750,7 +750,7 @@ async function updateM2BotAccountStatus(DB, DiscordId, Email, Status) {
             }
         })
     });
-}
+};
 
 async function newM2BotAccount(DB, DiscordId, Email) {
     return new Promise((resolve, reject) => {
@@ -763,7 +763,7 @@ async function newM2BotAccount(DB, DiscordId, Email) {
             }
         })
     });
-}
+};
 
 async function removeM2BotAuthSession(DB, SessionId) {
     return new Promise((resolve, reject) => {
@@ -776,7 +776,7 @@ async function removeM2BotAuthSession(DB, SessionId) {
             }
         })
     });
-}
+};
 
 async function updateStatusM2BotAuthSession(DB, SessionId, Status) {
     return new Promise((resolve, reject) => {
@@ -789,7 +789,7 @@ async function updateStatusM2BotAuthSession(DB, SessionId, Status) {
             }
         })
     });
-}
+};
 
 async function updateStatusM2BotAuthSessionOtp(DB, discordId, Status) {
     return new Promise((resolve, reject) => {
@@ -802,7 +802,20 @@ async function updateStatusM2BotAuthSessionOtp(DB, discordId, Status) {
             }
         })
     });
-}
+};
+
+async function newM2BotTransition(DB, discordId, Type, Value) {
+    return new Promise((resolve, reject) => {
+        DB.query("INSERT INTO `transition`(`discord_id`, `type`, `value`) VALUES (?, ?, ?)", [discordId, Type, Value], (err, results) => {
+            if (err) {
+                console.error('Error executing MySQL query:', err);
+                reject(err);
+            } else {
+                resolve(results);
+            }
+        })
+    });
+};
 
 function generateEmailOTP(otpLength = 6) {
     let otp = '';
@@ -812,7 +825,7 @@ function generateEmailOTP(otpLength = 6) {
     }
 
     return otp;
-}
+};
 
 function sendEmail(emailTo, subject, text, html) {
     const transporter = nodemailer.createTransport({
@@ -848,7 +861,28 @@ function sendEmail(emailTo, subject, text, html) {
             };
         }
     });
-}
+};
+
+function convertToString(variable) {
+    if (typeof variable === 'string') {
+      // If the variable is already a string, return it as is
+      return variable;
+    } else if (typeof variable === 'number') {
+      // If the variable is a number, convert it to a string
+      return variable.toString();
+    } else if (typeof variable === 'object') {
+      // If the variable is an object or an array, convert it to JSON string
+      try {
+        return JSON.stringify(variable);
+      } catch (error) {
+        console.error('Error converting object to string:', error);
+        return null; // Return null in case of an error
+      }
+    } else {
+      // For other types, use the default toString() method
+      return variable.toString();
+    }
+  }
 
 module.exports = {
     generateRandomString,
@@ -892,4 +926,6 @@ module.exports = {
     updateStatusM2BotAuthSession,
     updateStatusM2BotAuthSessionOtp,
     updateM2BotAccountStatus,
+    newM2BotTransition,
+    convertToString,
 };

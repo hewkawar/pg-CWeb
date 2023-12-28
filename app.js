@@ -561,7 +561,22 @@ app.put('/app/m2bot/account/inactive', async (req, res) => {
     const updatestatus = await utilts.updateM2BotAccountStatus(m2bot_db, discordId, email, 'inactive');
 
     if (!updatestatus) return res.status(500).json({ status: 3, message: "Someting Error"})
-    return res.status(200).json({ status: 0, message: "Ok" })
+    return res.status(200).json({ status: 0, message: "Ok" });
+});
+
+app.post('/app/m2bot/transition', async (req, res) => {
+    const { discordId, type, value } = req.body;
+
+    if (!discordId) return res.status(400).json({ status: 1, message: "Unknow discordId"});
+    if (!type) return res.status(400).json({ status: 2, message: "Unknow type"});
+    if (!value) return res.status(400).json({ status: 3, message: "Unknow value"});
+
+    const real_value = utilts.convertToString(value);
+
+    const Insert = await utilts.newM2BotTransition(m2bot_db, discordId, type, real_value);
+
+    if (!Insert) res.status(500).json({ status: 4, message: "Can't Add Data to Database"});
+    return res.status(200).json({ status: 0, message: "Insert Success" });
 });
 
 app.get('/app/bank/session', async (req, res) => {
@@ -1988,11 +2003,11 @@ app.post('/app/bank/connect', async (req, res) => {
 });
 
 app.post('/app/playground/cweb/send-message', async (req, res) => {
-    await axios.post("http://localhost:2414/send-message", req.body).then(response => {
-        return res.json(response.data);
+    await axios.post("http://192.168.0.245:2414/send-message", req.body).then(response => {
+        return res.status(response.status).json(response.data);
     }).catch(error => {
         console.log(error);
-        return res.json(error.data);
+        return res.status(error.response.status).json(error.response.data);
     });
 });
 
